@@ -39,7 +39,7 @@ head(dat2014$datetime) # check
 # Keep munging
 length(unique(dat2014$datetime)) # number of RAD samples
 col1 = unique(dat2014$datetime) # make a colum
-col.names = c("datetime", unique(dat2014$SubStratum))
+col.names = c("datetime", unique(dat2014$SubStratum), unique(dat2014$Stratum))
 col.names
 
 unique(dat2014$GroupSize)
