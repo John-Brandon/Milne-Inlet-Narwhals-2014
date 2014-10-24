@@ -39,7 +39,7 @@ dat2014$SubStratum[typos.ii] = "I3"
 dat2014$Stratum = substring(dat2014$SubStratum, first = 1, last = 1) # Create a vector with Stratum from SubStratum vector
 dat2014$SubStratum.num = substring(dat2014$SubStratum, first = 2, last = 2) # Create a vector with SubStratum.num from SubStratum vector
 
-dat2014$datetime = with(dat2014, paste(Date, Time)) # Convert DateTime to POSIXlt class
+dat2014$datetime = with(dat2014, paste(Date, Time)) # Convert DateTime to POSIXct class
 dat2014$datetime = as.POSIXct(dat2014$datetime) # not really necessary at this stage, but a place holder for possible future analysis / visualizing time series
 
 length(unique(dat2014$datetime)) # number of "Relative Abundance and Distribution" (RAD) samples in 2014
