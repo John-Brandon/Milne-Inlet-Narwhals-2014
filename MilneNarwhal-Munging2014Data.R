@@ -19,8 +19,8 @@ getOption("stringsAsFactors") # check
 library(plyr) # Hadley Wickham's "Plier" package for common tasks (e.g. summarizing) with data.frames
 
 rm(list=ls()) # clear leftovers from previous workspace
-
-load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") # Load workspace 
+foo = NULL
+# load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") # Load workspace 
 
 setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data
 dfile = "2014.milne.inlet.narwhal.csv" # 2014 RAD data file, saved as comma delimited
@@ -67,7 +67,8 @@ tot.counts.subs = ddply(tot.counts, "SubStratum", summarise, TotalCount = sum(To
 # tot.counts.subs = aggregate(tot.counts.tmp$TotalCount, by = list(SubStratum = tot.counts.tmp$SubStratum), sum) # same result as line above
 
 head(tot.counts.subs)
-write.csv(file = "foo.csv", x = foo); system("open foo.csv") # check
+foo = tot.counts.subs
+write.csv(file = "foo.csv", x = foo, row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Summarize by Stratum (integrating over time)

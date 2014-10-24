@@ -15,8 +15,9 @@
 #====== +++ === === +++ === === +++ === ===
 library(plyr) # Hadley Wickham's "Plier" package for common tasks (e.g. summarizing) with data.frames
 
+rm(list=ls()) # clear leftovers from previous workspace
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") # Load workspace 
-setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data
+setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data, really for outputting tables (data has already been read)
 
 write.csv(x = dat2014, file = "foo.csv"); system("open foo.csv") # check
 
@@ -28,10 +29,10 @@ write.csv(x = dat2014, file = "foo.csv"); system("open foo.csv") # check
 #====== +++ === === +++ === === +++ === ===
 
 # For each unique day, get the start (earliest) and end (latest) time for counts, and sum the total number of counts
-foo.table = ddply(dat2014, "Date", summarise, StartTime = substr(min(datetime), 12, 16), EndTime = substr(max(datetime), 12, 16), 
+table.all.counts = ddply(dat2014, "Date", summarise, StartTime = substr(min(datetime), 12, 16), EndTime = substr(max(datetime), 12, 16), 
             Counts = length(unique(Time))) # , Counts.With.Vessel = would be nice to add this but do by hand for now
 
-AddVesselCounts = function(dat){ # horrible naming convention here, apologies
+AddVesselCounts = function(dat){ # TODO (jbrandon): horrible naming convention here (and foo.table), apologies
   foo = NULL; goo = NULL
   foo = unique(dat)
   goo = which(foo == "PRE" | foo == "C" | foo == "POST")
@@ -47,8 +48,11 @@ write.csv(x = foo.table, file = "foo.csv", row.names = FALSE); system("open foo.
 #====== +++ === === +++ === === +++ === ===
 # Table XX. Number of narwhals (individuals) per stratum, number of abundance counts, and
 # mean number of narwhals per count considering all abundance data.
+# Note: at present this just returns the total numbers per stratum. The number of counts was calculated above, 
+#  and mean number of narwhals per count is currently calculated in the spreadsheet. 
+#  The tallies done in the spreadsheet could propably been done here, to make the results more reproducible. 
 #====== +++ === === +++ === === +++ === ===
-foo.table2 = ddply(dat2014, "Date", summarise, 
+foo.table2 = ddply(dat2014, "Date", summarise, # TODO (jbrandon): again, horrible name for a table. Revise.
                    A = sum(GroupSize[which(Stratum=="A")], na.rm = TRUE), # this is pretty cluggy
                    B = sum(GroupSize[which(Stratum=="B")], na.rm = TRUE),
                    C = sum(GroupSize[which(Stratum=="C")], na.rm = TRUE),
@@ -62,11 +66,9 @@ foo.table2 = ddply(dat2014, "Date", summarise,
 write.csv(x = foo.table2, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
-# Table XX. Number of narwhals per stratum, number of abundance counts, and mean number of
-#  narwhals per count during periods of good or excellent sightability conditions in August 2013.
+# Make a column which assigns an ID number for each count (a single day may have multiple counts)
+# TODO (jbrandon): Move this code to 'Munging' script
 #====== +++ === === +++ === === +++ === ===
-
-# make a column which assigns an ID number for each count (a single day may have multiple counts)
 count.id = seq(from = 1, to = length(unique(dat2014$datetime))); count.id
 ii = NULL
 dat2014$Count.id = rep(-99, nrow(dat2014))
@@ -78,15 +80,19 @@ for(ii in 1:length(unique(dat2014$datetime))){ # probably a more elegant way to 
 foo = dat2014
 write.csv(x = foo, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
-# Designate counts for Inclusion, if they were conducted during complete good to excellent sightability 
-#  Any poor sightability, even if just one substratum, results in exclusion of that entire count at present
-#  Note also, that instead of "P" for poor, if no attempt at a count was made for a sub-stratum (e.g. due to fog)
-#    then those were entered as "x" (read into R as "NA"), so those will need to be excluded as well under this criteria
+#====== +++ === === +++ === === +++ === ===
+# Designate survey.counts for Inclusion:
+#  A complete survey.count is, by definition, one which inlcudes counts, meeting the criteria, for all sub-stratum.  
+#  i.e. counts across each substratum were conducted during good to excellent sightability 
+#  Any poor sightability, even if just one substratum, results in exclusion of that entire count under present criteria
+#  Note also, that in addition to "P" for poor, if no attempt at a count was made for a sub-stratum (e.g. due to fog)
+#    then those were entered as "x" (read into R as "NA"), so those counts with any "NA" or "P" will be excluded.
+#====== +++ === === +++ === === +++ === ===
 unique(dat2014$Sightability)
 length(which(is.na(dat2014$Sightability)))
-length(which(dat2014$Sightability == "P"))
-length(which(dat2014$Sightability == "L"))
-length(which(dat2014$Sightability == 3)) 
+length(which(dat2014$Sightability == "P")) 
+length(which(dat2014$Sightability == "L")) # TODO (hsmith): Data needs QC checking
+length(which(dat2014$Sightability == 3))  # TODO (hsmith): Data needs QC checking
 
 unique(dat2014$Count.id[which(is.na(dat2014$Sightability))]) # check to see which count.id's had NA's
 unique(dat2014$Count.id[which(dat2014$Sightability == "P")]) # check to see which count.id's had P's
@@ -114,7 +120,31 @@ for(ii in 1:nrow(counts.to.include)){
 }
 write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
+#====== +++ === === +++ === === +++ === ===
 # subset data to exclude abundance counts that included at least one strata with poor sightability
-dat2014.keepers = subset(dat2014, IncludeCount)
-unique(dat2014.keepers$IncludeCount)
-dim(dat2014.keepers); dim(dat2014)
+#====== +++ === === +++ === === +++ === ===
+dat2014.keepers = subset(dat2014, IncludeCount == TRUE)
+write.csv(x = dat2014.keepers, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+unique(dat2014.keepers$IncludeCount)  # check
+dim(dat2014.keepers); dim(dat2014) # check
+
+#====== +++ === === +++ === === +++ === ===
+# Table "Keepers" for the count by stratum data
+#====== +++ === === +++ === === +++ === ===
+keepers.table = ddply(dat2014.keepers, "Date", summarise, # TODO(jbrandon): come up wit more elegant way to sum over groups (i.e. when number of stratum is a variable)
+                   A = sum(GroupSize[which(Stratum=="A")], na.rm = TRUE), # this is pretty cluggy
+                   B = sum(GroupSize[which(Stratum=="B")], na.rm = TRUE),
+                   C = sum(GroupSize[which(Stratum=="C")], na.rm = TRUE),
+                   D = sum(GroupSize[which(Stratum=="D")], na.rm = TRUE),
+                   E = sum(GroupSize[which(Stratum=="E")], na.rm = TRUE),
+                   F = sum(GroupSize[which(Stratum=="F")], na.rm = TRUE),
+                   G = sum(GroupSize[which(Stratum=="G")], na.rm = TRUE),
+                   H = sum(GroupSize[which(Stratum=="H")], na.rm = TRUE),
+                   I = sum(GroupSize[which(Stratum=="I")], na.rm = TRUE)) # , Counts.With.Vessel = would be nice to add this but do by hand for now
+
+write.csv(x = keepers.table, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+is.data.frame(keepers.table) #check
+keepers.table.counts = keepers.table[,-1]
+keepers.table.counts 
+# TODO (jbrandon): add columns to keepers.table with total counts by day; counts by day, and; mean # counts per day
