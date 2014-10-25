@@ -21,6 +21,16 @@
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") # Load workspace 
 setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data, really for outputting tables (data has already been read)
 
+# Rounding 'datetime' (class POSIXct) to nearest hour
+datetime.rounded.to.hr = dat2014$datetime # create a new column that will contain datetime rounded to the nearest hour 
+datetime.rounded.to.hr = format(round(datetime.rounded.to.hr, units="hours"), format="%H:%M") # seems to work
+str(datetime.rounded.to.hr) # returns a character string
+dat2014$datetime.rounded.to.hr = datetime.rounded.to.hr # append the rounded hours to data.frame
+
+write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+# Use ddply to bin number of narwhals by hourly blocks
+ddply()
 
 
 #====== +++ === === +++ === === +++ === ===
