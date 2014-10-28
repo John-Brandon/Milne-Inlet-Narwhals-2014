@@ -54,7 +54,7 @@ write.csv(x = start.end.daily.table, file = "foo.csv", row.names = FALSE); syste
 #  and mean number of narwhals per count is currently calculated in the spreadsheet. 
 #  The tallies done in the spreadsheet could propably been done here, to make the results more reproducible. 
 #====== +++ === === +++ === === +++ === ===
-foo.table2 = ddply(dat2014, "Date", summarise, # TODO (jbrandon): again, horrible name for a table. Revise.
+table.all.numbers = ddply(dat2014, "Date", summarise, # TODO (jbrandon): again, horrible name for a table. Revise.
                    A = sum(GroupSize[which(Stratum=="A")], na.rm = TRUE), # this is pretty cluggy
                    B = sum(GroupSize[which(Stratum=="B")], na.rm = TRUE),
                    C = sum(GroupSize[which(Stratum=="C")], na.rm = TRUE),
@@ -65,22 +65,7 @@ foo.table2 = ddply(dat2014, "Date", summarise, # TODO (jbrandon): again, horribl
                    H = sum(GroupSize[which(Stratum=="H")], na.rm = TRUE),
                    I = sum(GroupSize[which(Stratum=="I")], na.rm = TRUE)) # , Counts.With.Vessel = would be nice to add this but do by hand for now
 
-write.csv(x = foo.table2, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-#====== +++ === === +++ === === +++ === ===
-# Make a column which assigns an ID number for each count (a single day may have multiple counts)
-# TODO (jbrandon): Move this code to 'Munging' script
-#====== +++ === === +++ === === +++ === ===
-count.id = seq(from = 1, to = length(unique(dat2014$datetime))); count.id
-ii = NULL
-dat2014$Count.id = rep(-99, nrow(dat2014))
-for(ii in 1:length(unique(dat2014$datetime))){ # probably a more elegant way to do this, rather than a loop.
-  rec.numbers = NULL
-  rec.numbers = which(dat2014$datetime == unique(dat2014$datetime)[ii])  
-  dat2014$Count.id[rec.numbers] = count.id[ii]
-}
-foo = dat2014
-write.csv(x = foo, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+write.csv(x = table.all.numbers, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Designate survey.counts for Inclusion:
@@ -124,8 +109,9 @@ write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.cs
 # subset data to exclude abundance counts that included at least one strata with poor sightability
 #====== +++ === === +++ === === +++ === ===
 dat2014.keepers = subset(dat2014, IncludeCount == TRUE) # IncludeCount is column with TRUE / FALSE in each row
+
 write.csv(x = dat2014.keepers, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-unique(dat2014.keepers$IncludeCount)  # check
+unique(dat2014.keepers$IncludeCount)  # check -- should be TRUE
 dim(dat2014.keepers); dim(dat2014) # check
 
 #====== +++ === === +++ === === +++ === ===
@@ -164,8 +150,18 @@ keepers.table$mean.no.per.count = round(keepers.table$mean.no.per.count, digits 
 
 write.csv(x = keepers.table, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
-save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData")
+#====== +++ === === +++ === === +++ === ===
+# Table number of narwhals per stratum during: 
+#  (1) good or excellent sightability, and
+#  (2) during periods of "PRE" "C" or "POST" vessel presence
+#====== +++ === === +++ === === +++ === ===
+names(dat2014.keepers) # these are the counts where each (and every) stratum was observed during good to excellent sightability 
 
+dat2014.keepers.vessel = subset(dat2014.keepers, Vessel.related.count == TRUE)
+write.csv(x = dat2014.keepers.vessel, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+
+save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData")
 # # SCRATCH CODE BELOW
 # ?rle
 # rm(z)
