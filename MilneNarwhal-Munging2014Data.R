@@ -6,22 +6,22 @@
 # Language : R (ver 3.0.2 (2013-09-25) -- "Frisbee Sailing")
 # IDE  : Rstudio v 0.98.484
 ###=== === +++ === === +++ === === +++ === ===
-# Purpose : Visualize and analyze Milen Inlet narwhal data for LGL / Baffinland 
+# Purpose : Munge Milne Inlet narwhal data for LGL / Baffinland 
 #  Notes : 
 #  1) Your main directory will differ. See 'base.dir' variable below to edit that path to match your system
 #  2) POSIXct is a class for representing calendar dates and times (these must be input in a strictly decreasing unambigous order, i.e. "YYYY-MM-DD HH:MM:SS")
 #  3) These data are also known as "Relative Abundance and Distribution" (RAD) data 
 #
 #====== +++ === === +++ === === +++ === ===
-if (getOption("stringsAsFactors")) options(stringsAsFactors = FALSE) # set global option, don't want strings read as factors
-getOption("stringsAsFactors") # check
-
 library(plyr) # Hadley Wickham's "Plier" package for common tasks (e.g. summarizing) with data.frames
 
-rm(list=ls()) # clear leftovers from previous workspace
-foo = NULL
-# load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") # Load workspace 
+load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/TideData.MilneNarwhal.2014.RData") # Load TIDE workspace
 
+# Some initializations
+rm(list=ls()) # clear leftovers from previous workspace
+if (getOption("stringsAsFactors")) options(stringsAsFactors = FALSE) # set global option, don't want strings read as factors
+
+# Read data
 setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data
 dfile = "2014.milne.inlet.narwhal.csv" # 2014 RAD data file, saved as comma delimited
 dat2014 = read.csv(file = dfile, header = TRUE, as.is = TRUE, na.strings = c("NA", "x", "X")) # Read data file 
@@ -39,8 +39,8 @@ dat2014$SubStratum[typos.ii] = "I3"
 dat2014$Stratum = substring(dat2014$SubStratum, first = 1, last = 1) # Create a vector with Stratum from SubStratum vector
 dat2014$SubStratum.num = substring(dat2014$SubStratum, first = 2, last = 2) # Create a vector with SubStratum.num from SubStratum vector
 
-dat2014$datetime = with(dat2014, paste(Date, Time)) # Convert DateTime to POSIXct class
-dat2014$datetime = as.POSIXct(dat2014$datetime) # not really necessary at this stage, but a place holder for possible future analysis / visualizing time series
+dat2014$datetime = with(dat2014, paste(Date, Time)) 
+dat2014$datetime = as.POSIXct(dat2014$datetime) # Convert DateTime to POSIXct class
 
 length(unique(dat2014$datetime)) # number of "Relative Abundance and Distribution" (RAD) samples in 2014
 
@@ -57,9 +57,9 @@ write.csv(file = "foo.csv", x = group.size, row.names = FALSE); system("open foo
 # Add a column to data.frame, assigning TRUE or FALSE to vessel count
 #  If CountType is "PRE", "C" or "POST" vessel count is TRUE, otherwise FALSE
 #====== +++ === === +++ === === +++ === ===
-dat2014$Vessel.related.count = rep(FALSE, nrow(dat2014))
+dat2014$Vessel.related.count = rep(FALSE, nrow(dat2014)) # create dummy column to be filled below
 Vessel.related.count.ii = which(dat2014$CountType %in% c("PRE", "C", "POST")) # which CountType records are "PRE", "C" or "POST"
-dat2014$Vessel.related.count[Vessel.related.count.ii] = TRUE
+dat2014$Vessel.related.count[Vessel.related.count.ii] = TRUE  # fill column
 
 write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
@@ -67,7 +67,7 @@ write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.cs
 # Make a column which assigns an ID number for each count (a single day may have multiple counts)
 # TODO (jbrandon): Move this code to 'Munging' script
 #====== +++ === === +++ === === +++ === ===
-count.id = seq(from = 1, to = length(unique(dat2014$datetime))); count.id
+count.id = seq(from = 1, to = length(unique(dat2014$datetime))); count.id 
 ii = NULL
 dat2014$Count.id = rep(-99, nrow(dat2014))
 for(ii in 1:length(unique(dat2014$datetime))){ # probably a more elegant way to do this, rather than a loop.

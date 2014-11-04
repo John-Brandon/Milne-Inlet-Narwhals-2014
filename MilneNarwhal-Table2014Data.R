@@ -16,7 +16,9 @@
 library(plyr) # Hadley Wickham's "Plier" package for splitting data.frames and applying functions to each subset
 
 rm(list=ls()) # clear leftovers from previous workspace
+
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") # Load workspace 
+
 setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data, really for outputting tables (data has already been read)
 
 write.csv(x = dat2014, file = "foo.csv"); system("open foo.csv") # check

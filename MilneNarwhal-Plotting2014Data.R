@@ -15,12 +15,18 @@
 #====== +++ === === +++ === === +++ === ===
 library(plyr)
 library(ggplot2)
+library(RColorBrewer)
 # base.dir = "~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code"
 # wrk.space = "MilneNarwhal.2014.RData"
 # wrk.space = paste(base.dir, wrk.space, sep"/")
 # load(wrk.space)
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") # Load workspace 
 setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data, really for outputting tables (data has already been read)
+
+# Initialize some plottig parameters -- create custom plotting theme for ggplot2
+mytheme = theme_grey() + theme(axis.title.x = element_text(size = rel(2.0), vjust = 0.0), 
+                               axis.title.y = element_text(size = rel(2.0), vjust = 1.0), axis.text = element_text(size = rel(1.5), colour = "black"),
+                               plot.title = element_text(size = rel(2.5))) # , plot.margin=unit(c(1,1,1,1),"cm")
 
 # Rounding 'datetime' (class POSIXct) to nearest hour
 datetime.rounded.to.hr = dat2014$datetime # create a new column that will contain datetime rounded to the nearest hour 
@@ -43,6 +49,7 @@ write.csv(x = fig.numbers.by.hour, file = "foo.csv", row.names = FALSE); system(
 
 # Bar graph of numbers (or average numbers) by hour
 ggplot(fig.numbers.by.hour, aes(x = datetime.rounded.to.hr, y = Counts)) + geom_bar(stat = "identity") # total counts
+ggplot(fig.numbers.by.hour, aes(x = datetime.rounded.to.hr, y = Counts)) + geom_bar(stat = "identity") + mytheme # total counts
 ggplot(fig.numbers.by.hour, aes(x = datetime.rounded.to.hr, y = Mean.number)) + geom_bar(stat = "identity") # average number per count
 
 #====== +++ === === +++ === === +++ === ===
@@ -81,11 +88,34 @@ write.csv(x = numbers.by.count.and.strata, file = "foo.csv", row.names = FALSE);
 # TODO: get data.frame above into format for plotting ggplot heat map
 # Think we're going to need to 'melt' this data.frame
 heat.dat = subset(numbers.by.count.and.strata, select = -c(Numbers, DateTime)) # simplify data.frame (debugging)
-heat.dat = melt(heat.dat, id = 'Count.id') # go from wide to long data.frame format
+heat.dat = melt(heat.dat, id = 'Count.id') # go from wide to long data.frame format -- use function melt()
 head(heat.dat)
+names(heat.dat) = c("Count.ID", "Stratum", "Numbers")
 write.csv(x = heat.dat, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
-qplot(x = Count.id, y = variable, data = heat.dat, fill = value, geom = "raster") # Looks like a first step!!
+qplot(x = Count.ID, y = Stratum, data = heat.dat, fill = Numbers, geom = "raster", ylab = "Stratum") # Looks like a first step!!
+
+col.ramp.Function = colorRampPalette(c("black", "grey70")) # create a color palette
+palettesize = max(heat.dat$Numbers)
+col.ramp = col.ramp.Function(palettesize)
+
+(heat.map.strata = ggplot(heat.dat, aes(x = Count.ID, y = Stratum, fill = Numbers)) + geom_tile())
+heat.map.strata = heat.map.strata + scale_y_discrete(limits=rev(levels(heat.dat$Stratum))) # reverse y-axis to coincide with orientation of strata
+heat.map.strata
+heat.map.strata = heat.map.strata + scale_fill_gradient2(low = col.ramp[1],
+                                                          mid = col.ramp[palettesize / 2], 
+                                                          high = col.ramp[palettesize],
+                                                          midpoint = (max(heat.dat$Numbers) + min(heat.dat$Numbers)) / 2, 
+                                                          name = "Numbers")
+heat.map.strata
+heat.map.strata = heat.map.strata + coord_cartesian(xlim = range(heat.dat$Count.ID))
+heat.map.strata
+
+?scale_fill_gradient2
+?colorRampPalette
+
+
+
 
 
 #====== +++ === === +++ === === +++ === ===
