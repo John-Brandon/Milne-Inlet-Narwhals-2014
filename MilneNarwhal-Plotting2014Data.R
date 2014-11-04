@@ -28,13 +28,14 @@ mytheme = theme_grey() + theme(axis.title.x = element_text(size = rel(2.0), vjus
                                axis.title.y = element_text(size = rel(2.0), vjust = 1.0), axis.text = element_text(size = rel(1.5), colour = "black"),
                                plot.title = element_text(size = rel(2.5))) # , plot.margin=unit(c(1,1,1,1),"cm")
 
-# Rounding 'datetime' (class POSIXct) to nearest hour
-datetime.rounded.to.hr = dat2014$datetime # create a new column that will contain datetime rounded to the nearest hour 
-datetime.rounded.to.hr = format(round(datetime.rounded.to.hr, units="hours"), format="%H:%M") # seems to work
-str(datetime.rounded.to.hr) # returns a character string
-dat2014$datetime.rounded.to.hr = datetime.rounded.to.hr # append the rounded hours to data.frame
+# move this to plotting script(s)
+#====== +++ === === +++ === === +++ === ===
+# Histogram of total counts by strata 
+#  Note: tot.counts.strat are for all sighting conditions AND include periods when large vessels were associated with counts
+#====== +++ === === +++ === === +++ === ===
+ggplot(tot.counts.strat, aes(x = Stratum, y = TotalCount)) + geom_bar(stat = "identity")
 
-write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
 
 # Use ddply to bin (1) number of counts, and (2) narwhals by hourly blocks -- do without large vessel counts
 without.vessels.dat2014 = subset(dat2014, (CountType != "PRE" & CountType != "C" & CountType != "POST"))
@@ -142,3 +143,69 @@ map <- openmap(upperLeft = c(lat = 72.17, lon = -81),
                minNumTiles=4,type="bing")
 plot(map)
 autoplot(map)
+
+#====== +++ === === +++ === === +++ === ===
+#====== +++ === === +++ === === +++ === ===
+# %%% 
+# SCRATCH CODE BELOW
+# %%% 
+#====== +++ === === +++ === === +++ === ===
+pp <- function (n,r=4) {
+  x <- seq(-r*pi, r*pi, len=n)
+  df <- expand.grid(x=x, y=x)
+  df$r <- sqrt(df$x^2 + df$y^2)
+  df$z <- cos(df$r^2)*exp(-df$r/6)
+  df
+}
+str(pp(10))
+
+
+# SCRATCH CODE BELOW
+(dat <- data.frame(time = 1:10, s1 = rnorm(10), s2 = rnorm(10), s3 = rnorm(10)))
+library('reshape2')
+library('ggplot2')
+
+# melt the data (wide -> long)
+(dm <- melt(dat, id = 'time'))
+
+str(dm)
+
+head(dm)
+
+# Plot the series together, distinguish by color:
+ggplot(dm, aes(x = time, y = value, colour = variable)) +
+  geom_path(size = 1)
+# Plot the series in separate panels
+ggplot(dm, aes(x = time, y = value)) + geom_path(size = 1) +
+  facet_wrap(~ variable, ncol = 1)
+#=== === === === ===
+library(reshape)
+library(ggplot2)
+# Using ggplot2 0.9.2.1
+
+nba <- read.csv("http://datasets.flowingdata.com/ppg2008.csv")
+nba$Name <- with(nba, reorder(Name, PTS))
+nba.m <- melt(nba)
+nba.m <- ddply(nba.m, .(variable), transform, value = scale(value))
+?scale
+# Convert the factor levels to numeric + quanity to determine size of hole.
+nba.m$var2 = as.numeric(nba.m$variable) + 15
+
+# Labels and breaks need to be added with scale_y_discrete.
+y_labels = levels(nba.m$variable)
+y_breaks = seq_along(y_labels) + 15
+
+p2 = ggplot(nba.m, aes(x=Name, y=var2, fill=value)) +
+  geom_tile(colour="white") +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  ylim(c(0, max(nba.m$var2) + 0.5)) +
+  scale_y_discrete(breaks=y_breaks, labels=y_labels) +
+  coord_polar(theta="x") +
+  theme(panel.background=element_blank(),
+        axis.title=element_blank(),
+        panel.grid=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks=element_blank(),
+        axis.text.y=element_text(size=5))
+
+p2

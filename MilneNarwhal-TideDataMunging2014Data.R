@@ -103,7 +103,7 @@ dat.tides.2014 = StampTime.Tides(dat.tides.2014) # append data.frame with new co
 
 dat.tides.2014 = AssignHighLow.Tides(dat.tides.2014) # append data.frame with new columns for "high/low" and "delta" (directional rate of tide change)
 
-# write.csv(x = dat.tides.2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+write.csv(x = dat.tides.2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Save workspace image
@@ -111,7 +111,4 @@ dat.tides.2014 = AssignHighLow.Tides(dat.tides.2014) # append data.frame with ne
 save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/TideData.MilneNarwhal.2014.RData")
 
 # SCRATCH CODE BELOW
-foo = dat.tides.2014
-foo = subset(foo, Day %in% c(245, Day = 246)) # select two days
-plot(foo$datetime, foo$Elevation, xlab = "Date", ylab = "Height (m)", type = 'l')
-plot(foo$Min, foo$Elevation)
+

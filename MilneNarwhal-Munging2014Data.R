@@ -14,12 +14,14 @@
 #
 #====== +++ === === +++ === === +++ === ===
 library(plyr) # Hadley Wickham's "Plier" package for common tasks (e.g. summarizing) with data.frames
-
-load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/TideData.MilneNarwhal.2014.RData") # Load TIDE workspace
+library(ggplot2)
+library(lubridate) # useful alternative functions for working with standard POSIXct format
 
 # Some initializations
 rm(list=ls()) # clear leftovers from previous workspace
 if (getOption("stringsAsFactors")) options(stringsAsFactors = FALSE) # set global option, don't want strings read as factors
+
+load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/TideData.MilneNarwhal.2014.RData") # Load TIDE workspace
 
 # Read data
 setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data
@@ -41,6 +43,8 @@ dat2014$SubStratum.num = substring(dat2014$SubStratum, first = 2, last = 2) # Cr
 
 dat2014$datetime = with(dat2014, paste(Date, Time)) 
 dat2014$datetime = as.POSIXct(dat2014$datetime) # Convert DateTime to POSIXct class
+
+dat2014$datetime = force_tz(time = dat2014$datetime, tzone = "America/Iqaluit") # change from default time zone to EDT, but don't change time
 
 length(unique(dat2014$datetime)) # number of "Relative Abundance and Distribution" (RAD) samples in 2014
 
@@ -75,15 +79,15 @@ for(ii in 1:length(unique(dat2014$datetime))){ # probably a more elegant way to 
   rec.numbers = which(dat2014$datetime == unique(dat2014$datetime)[ii])  
   dat2014$Count.id[rec.numbers] = count.id[ii]
 }
-foo = dat2014
-write.csv(x = foo, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Summarize abundance by SubStratum (integrating over time)
 #====== +++ === === +++ === === +++ === ===
 tot.counts = group.size
-i = sapply(tot.counts, is.factor) # intermediate step to convert columns that are presently factors to characters
-tot.counts[i] <- lapply(tot.counts[i], as.character) # convert columns that are factors to character strings
+ii = sapply(tot.counts, is.factor) # intermediate step to convert columns that are presently factors to characters
+tot.counts[ii] <- lapply(tot.counts[ii], as.character) # convert columns that are factors to character strings
 tot.counts$TotalCount = as.numeric(tot.counts$GroupSize) * tot.counts$Freq # TotalCounts are product of group size and numbers of groups
 tot.counts$Stratum = substring(tot.counts$SubStratum, first = 1, last = 1) # Create a vector with Stratum from SubStratum vector
 tot.counts$SubStratum.num = substring(tot.counts$SubStratum, first = 2, last = 2) # Create a vector with SubStratum.num from SubStratum vector
@@ -91,9 +95,7 @@ tot.counts$SubStratum.num = substring(tot.counts$SubStratum, first = 2, last = 2
 tot.counts.subs = ddply(tot.counts, "SubStratum", summarise, TotalCount = sum(TotalCount)) # uses 'plyr' package, could also use function aggregate
 # tot.counts.subs = aggregate(tot.counts.tmp$TotalCount, by = list(SubStratum = tot.counts.tmp$SubStratum), sum) # same result as line above
 
-head(tot.counts.subs)
-foo = tot.counts.subs
-write.csv(file = "foo.csv", x = foo, row.names = FALSE); system("open foo.csv") # check
+write.csv(x = tot.counts.subs, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Summarize by Stratum (integrating over time)
@@ -102,76 +104,68 @@ tot.counts.strat = ddply(tot.counts, "Stratum", summarise, TotalCount = sum(Tota
 head(tot.counts.strat) # check
 tot.counts.strat
 
-library(ggplot2)
-ggplot(tot.counts.strat, aes(x = Stratum, y = TotalCount)) + geom_bar(stat = "identity")
+#====== +++ === === +++ === === +++ === ===
+# Rounding 'datetime' (class POSIXct) to nearest hour
+#  Commented code returns just the hour:minute
+#====== +++ === === +++ === === +++ === ===
+# datetime.rounded.to.hr = dat2014$datetime # create a new column that will contain datetime rounded to the nearest hour 
+# datetime.rounded.to.hr = format(round(datetime.rounded.to.hr, units="hours"), format="%H:%M") # seems to work
+# str(datetime.rounded.to.hr) # returns a character string
+# dat2014$datetime.rounded.to.hr = datetime.rounded.to.hr # append the rounded hours to data.frame
+
+datetime.rounded.to.hr = dat2014$datetime
+datetime.rounded.to.hr = round_date(datetime.rounded.to.hr, unit = "hour") # rounds to nearest hour
+dat2014$datetime.rounded.to.hr = datetime.rounded.to.hr # append the rounded hours to data.frame
+
+# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+#====== +++ === === +++ === === +++ === ===
+# Rounding 'datetime' (class POSIXct) to nearest five minute (to align with tide data, which are every 5 minutes)
+#  uses lubridate
+#====== +++ === === +++ === === +++ === ===
+dat2014$datetime.rounded.to.five.min = dat2014$datetime
+minute(dat2014$datetime.rounded.to.five.min) = floor(minute(dat2014$datetime.rounded.to.five.min)/5)*5 # round to nearest five minute
+
+write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+#====== +++ === === +++ === === +++ === ===
+# Merge tide data into RAD count data.frame
+#====== +++ === === +++ === === +++ === ===
+dat.tides.2014$datetime = as.POSIXct(dat.tides.2014$datetime) # make sure datetime class is consistent with main data.frame's
+# just get the columns of tide data that are desired for merged data.frame
+dat.tides.2014.subset = subset(dat.tides.2014, select = c(datetime, Elevation, highlow, delta, risingfalling, tidestate))
+
+foo = merge(x = dat2014, y = dat.tides.2014.subset, by.x = "datetime.rounded.to.five.min", by.y = "datetime")
+nrow(foo)
+
+write.csv(x = foo, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Save workspace image
 #====== +++ === === +++ === === +++ === ===
+
 save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData")
 
 #====== +++ === === +++ === === +++ === ===
+# Scratch code below
 #====== +++ === === +++ === === +++ === ===
-# %%% 
-# SCRATCH CODE BELOW
-# %%% 
-#====== +++ === === +++ === === +++ === ===
-pp <- function (n,r=4) {
-  x <- seq(-r*pi, r*pi, len=n)
-  df <- expand.grid(x=x, y=x)
-  df$r <- sqrt(df$x^2 + df$y^2)
-  df$z <- cos(df$r^2)*exp(-df$r/6)
-  df
-}
-str(pp(10))
+authors <- data.frame(
+  surname = I(c("Tukey", "Venables", "Tierney", "Ripley", "McNeil")),
+  nationality = c("US", "Australia", "US", "UK", "Australia"),
+  deceased = c("yes", rep("no", 4)))
 
+books <- data.frame(
+  name = I(c("Tukey", "Venables", "Tierney",
+             "Ripley", "Ripley", "McNeil", "R Core")),
+  title = c("Exploratory Data Analysis",
+            "Modern Applied Statistics ...",
+            "LISP-STAT",
+            "Spatial Statistics", "Stochastic Simulation",
+            "Interactive Data Analysis",
+            "An Introduction to R"),
+  other.author = c(NA, "Ripley", NA, NA, NA, NA,
+                   "Venables & Smith"))
 
-# SCRATCH CODE BELOW
-(dat <- data.frame(time = 1:10, s1 = rnorm(10), s2 = rnorm(10), s3 = rnorm(10)))
-library('reshape2')
-library('ggplot2')
-
-# melt the data (wide -> long)
-(dm <- melt(dat, id = 'time'))
-
-str(dm)
-
-head(dm)
-
-# Plot the series together, distinguish by color:
-ggplot(dm, aes(x = time, y = value, colour = variable)) +
-  geom_path(size = 1)
-# Plot the series in separate panels
-ggplot(dm, aes(x = time, y = value)) + geom_path(size = 1) +
-  facet_wrap(~ variable, ncol = 1)
-#=== === === === ===
-library(reshape)
-library(ggplot2)
-# Using ggplot2 0.9.2.1
-
-nba <- read.csv("http://datasets.flowingdata.com/ppg2008.csv")
-nba$Name <- with(nba, reorder(Name, PTS))
-nba.m <- melt(nba)
-nba.m <- ddply(nba.m, .(variable), transform, value = scale(value))
-?scale
-# Convert the factor levels to numeric + quanity to determine size of hole.
-nba.m$var2 = as.numeric(nba.m$variable) + 15
-
-# Labels and breaks need to be added with scale_y_discrete.
-y_labels = levels(nba.m$variable)
-y_breaks = seq_along(y_labels) + 15
-
-p2 = ggplot(nba.m, aes(x=Name, y=var2, fill=value)) +
-  geom_tile(colour="white") +
-  scale_fill_gradient(low = "white", high = "steelblue") +
-  ylim(c(0, max(nba.m$var2) + 0.5)) +
-  scale_y_discrete(breaks=y_breaks, labels=y_labels) +
-  coord_polar(theta="x") +
-  theme(panel.background=element_blank(),
-        axis.title=element_blank(),
-        panel.grid=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks=element_blank(),
-        axis.text.y=element_text(size=5))
-
-p2
+books
+authors
+(m1 <- merge(authors, books, by.x = "surname", by.y = "name"))
