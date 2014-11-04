@@ -132,13 +132,13 @@ write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.cs
 # Merge tide data into RAD count data.frame
 #====== +++ === === +++ === === +++ === ===
 dat.tides.2014$datetime = as.POSIXct(dat.tides.2014$datetime) # make sure datetime class is consistent with main data.frame's
+
 # just get the columns of tide data that are desired for merged data.frame
 dat.tides.2014.subset = subset(dat.tides.2014, select = c(datetime, Elevation, highlow, delta, risingfalling, tidestate))
 
-foo = merge(x = dat2014, y = dat.tides.2014.subset, by.x = "datetime.rounded.to.five.min", by.y = "datetime")
-nrow(foo)
+dat2014 = merge(x = dat2014, y = dat.tides.2014.subset, by.x = "datetime.rounded.to.five.min", by.y = "datetime")
 
-write.csv(x = foo, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Save workspace image
@@ -149,23 +149,3 @@ save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneN
 #====== +++ === === +++ === === +++ === ===
 # Scratch code below
 #====== +++ === === +++ === === +++ === ===
-authors <- data.frame(
-  surname = I(c("Tukey", "Venables", "Tierney", "Ripley", "McNeil")),
-  nationality = c("US", "Australia", "US", "UK", "Australia"),
-  deceased = c("yes", rep("no", 4)))
-
-books <- data.frame(
-  name = I(c("Tukey", "Venables", "Tierney",
-             "Ripley", "Ripley", "McNeil", "R Core")),
-  title = c("Exploratory Data Analysis",
-            "Modern Applied Statistics ...",
-            "LISP-STAT",
-            "Spatial Statistics", "Stochastic Simulation",
-            "Interactive Data Analysis",
-            "An Introduction to R"),
-  other.author = c(NA, "Ripley", NA, NA, NA, NA,
-                   "Venables & Smith"))
-
-books
-authors
-(m1 <- merge(authors, books, by.x = "surname", by.y = "name"))

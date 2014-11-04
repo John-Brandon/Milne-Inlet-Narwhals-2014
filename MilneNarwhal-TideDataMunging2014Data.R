@@ -34,6 +34,7 @@ StampTime.Tides = function(tide.dat){
   minute(tmp.datetime) = dat.tides.2013$Min # assign minutes to datetime
   second(tmp.datetime) = dat.tides.2013$Sec # assign seconds to datetime  
   tmp.datetime = with_tz(time = tmp.datetime, tzone = "America/Iqaluit") # change time zone from UTC (should subtract 4 hrs)
+  tmp.datetime = as.POSIXct(tmp.datetime) # easier to work with this class than POSIXlt for dates:times
   tide.dat$datetime = tmp.datetime # assign new column to data.frame with datetime
   plot(tide.dat$datetime, tide.dat$Elevation, type = 'l', xlab = "Date", ylab = "Tide Height (m)", main = as.character(unique.yrs))  
   StampTime.Tides = tide.dat # return the updated data.frame, with new column that has datetime
