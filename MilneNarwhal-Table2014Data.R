@@ -70,44 +70,6 @@ table.all.numbers = ddply(dat2014, "Date", summarise, # TODO (jbrandon): again, 
 write.csv(x = table.all.numbers, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
-# Designate survey.counts for Inclusion:
-#  A complete survey.count is one that includes only stratum counts meeting the sightability criteria across all stratum during that survey.count.  
-#  i.e. counts across each substratum were conducted during good to excellent sightability 
-#  Any poor sightability, even if just one substratum, results in exclusion of that entire count under present criteria
-#  Note also, that in addition to "P" for poor, if no attempt at a count was made for a sub-stratum (e.g. due to fog)
-#    then those were entered as "x" (read into R as "NA"), so those counts with any "NA" or "P" will be excluded.
-#====== +++ === === +++ === === +++ === ===
-unique(dat2014$Sightability)
-length(which(is.na(dat2014$Sightability)))
-length(which(dat2014$Sightability == "P")) 
-length(which(dat2014$Sightability == "L")) # TODO (hsmith): Data needs QC checking
-length(which(dat2014$Sightability == 3))  # TODO (hsmith): Data needs QC checking
-
-unique(dat2014$Count.id[which(is.na(dat2014$Sightability))]) # check to see which count.id's had NA's for no effort (due to fog, etc.)
-unique(dat2014$Count.id[which(dat2014$Sightability == "P")]) # check to see which count.id's had P's for Poor sightability conditions
-
-CountInclude = function(sightability){
-  # Does this count meet the criteria of having all sub-stratum observed during Good or Excellent conditions?
-  # 'sightability' here is a vector containing a code ("P", "G", "E", or NA) for each sub-stratum in a given count 
-  # 'include.count' is returned as TRUE or FALSE
-  unique.sight.codes = NULL; include.count = TRUE
-  unique.sight.codes = unique(sightability)
-  if ("P" %in% unique(sightability)) include.count = FALSE
-  if (NA %in% unique(sightability)) include.count = FALSE
-  return(include.count)
-}
-
-counts.to.include = ddply(dat2014, "Count.id", summarise, Include.count = CountInclude(Sightability)) # ! means NOT in R, so if no "P" then Include = TRUE 
-write.csv(x = counts.to.include, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-dat2014$IncludeCount = rep(FALSE, nrow(dat2014)) # create a new column, which will have logical values for including counts
-
-for(ii in 1:nrow(counts.to.include)){ # expand from concise counts.to.include to full length column in data.frame 
-  dat2014$IncludeCount[which(dat2014$Count.id == counts.to.include[ii,1])] = counts.to.include[ii,2] # gotta be a better way to code this
-}
-write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-#====== +++ === === +++ === === +++ === ===
 # subset data to exclude abundance counts that included at least one strata with poor sightability
 #====== +++ === === +++ === === +++ === ===
 dat2014.keepers = subset(dat2014, IncludeCount == TRUE) # IncludeCount is column with TRUE / FALSE in each row

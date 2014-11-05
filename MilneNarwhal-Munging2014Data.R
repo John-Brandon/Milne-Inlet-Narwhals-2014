@@ -98,20 +98,53 @@ tot.counts.subs = ddply(tot.counts, "SubStratum", summarise, TotalCount = sum(To
 write.csv(x = tot.counts.subs, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
-# Summarize by Stratum (integrating over time)
+# Summarize by Stratum (integrating over time) -- tot.counts.strat is plotted as histogram in plotting script
 #====== +++ === === +++ === === +++ === ===
 tot.counts.strat = ddply(tot.counts, "Stratum", summarise, TotalCount = sum(TotalCount)) # uses 'plyr' package, could also use function aggregate
 head(tot.counts.strat) # check
 tot.counts.strat
 
 #====== +++ === === +++ === === +++ === ===
-# Rounding 'datetime' (class POSIXct) to nearest hour
-#  Commented code returns just the hour:minute
+# Designate survey.counts for Inclusion:
+#  A complete survey.count is one that includes only stratum counts meeting the sightability criteria across all stratum during that survey.count.  
+#  i.e. counts across each substratum were conducted during good to excellent sightability 
+#  Any poor sightability, even if just one substratum, results in exclusion of that entire count under present criteria
+#  Note also, that in addition to "P" for poor, if no attempt at a count was made for a sub-stratum (e.g. due to fog)
+#    then those were entered as "x" (read into R as "NA"), so those counts with any "NA" or "P" will be excluded.
 #====== +++ === === +++ === === +++ === ===
-# datetime.rounded.to.hr = dat2014$datetime # create a new column that will contain datetime rounded to the nearest hour 
-# datetime.rounded.to.hr = format(round(datetime.rounded.to.hr, units="hours"), format="%H:%M") # seems to work
-# str(datetime.rounded.to.hr) # returns a character string
-# dat2014$datetime.rounded.to.hr = datetime.rounded.to.hr # append the rounded hours to data.frame
+unique(dat2014$Sightability)
+length(which(is.na(dat2014$Sightability)))
+length(which(dat2014$Sightability == "P")) 
+length(which(dat2014$Sightability == "L")) # TODO (hsmith): Data needs QC checking
+length(which(dat2014$Sightability == 3))  # TODO (hsmith): Data needs QC checking
+
+unique(dat2014$Count.id[which(is.na(dat2014$Sightability))]) # check to see which count.id's had NA's for no effort (due to fog, etc.)
+unique(dat2014$Count.id[which(dat2014$Sightability == "P")]) # check to see which count.id's had P's for Poor sightability conditions
+
+CountInclude = function(sightability){
+  # Does this count meet the criteria of having all sub-stratum observed during Good or Excellent conditions?
+  # 'sightability' here is a vector containing a code ("P", "G", "E", or NA) for each sub-stratum in a given count 
+  # 'include.count' is returned as TRUE or FALSE
+  unique.sight.codes = NULL; include.count = TRUE
+  unique.sight.codes = unique(sightability)
+  if ("P" %in% unique(sightability)) include.count = FALSE
+  if (NA %in% unique(sightability)) include.count = FALSE
+  return(include.count)
+}
+
+counts.to.include = ddply(dat2014, "Count.id", summarise, Include.count = CountInclude(Sightability)) # ! means NOT in R, so if no "P" then Include = TRUE 
+
+dat2014 = merge(x = dat2014, y = counts.to.include, by.x = "Count.id", by.y = "Count.id") # expand from concise counts.to.include to full length column in data.frame 
+
+write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+#====== +++ === === +++ === === +++ === ===
+# Rounding 'datetime' (class POSIXct) to nearest hour
+#  Do this with just the hour (no date) and with datetime
+#====== +++ === === +++ === === +++ === ===
+rounded.hour = dat2014$datetime # create a new column that will contain datetime rounded to the nearest hour 
+rounded.hour = format(round(datetime.rounded.to.hr, units="hours"), format="%H:%M") # seems to work
+dat2014$rounded.hour = rounded.hour # append the rounded hours to data.frame
 
 datetime.rounded.to.hr = dat2014$datetime
 datetime.rounded.to.hr = round_date(datetime.rounded.to.hr, unit = "hour") # rounds to nearest hour

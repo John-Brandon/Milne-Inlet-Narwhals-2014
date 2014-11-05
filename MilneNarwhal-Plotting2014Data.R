@@ -24,22 +24,26 @@ load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal
 setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data, really for outputting tables (data has already been read)
 
 # Initialize some plottig parameters -- create custom plotting theme for ggplot2
-mytheme = theme_grey() + theme(axis.title.x = element_text(size = rel(2.0), vjust = 0.0), 
-                               axis.title.y = element_text(size = rel(2.0), vjust = 1.0), axis.text = element_text(size = rel(1.5), colour = "black"),
+mytheme = theme_grey() + theme(axis.title.x = element_text(size = rel(1.75), vjust = 0.0), 
+                               axis.title.y = element_text(size = rel(1.75), vjust = 1.0), axis.text = element_text(size = rel(1.5), colour = "black"),
                                plot.title = element_text(size = rel(2.5))) # , plot.margin=unit(c(1,1,1,1),"cm")
 
-# move this to plotting script(s)
+
 #====== +++ === === +++ === === +++ === ===
 # Histogram of total counts by strata 
 #  Note: tot.counts.strat are for all sighting conditions AND include periods when large vessels were associated with counts
 #====== +++ === === +++ === === +++ === ===
-ggplot(tot.counts.strat, aes(x = Stratum, y = TotalCount)) + geom_bar(stat = "identity")
+ggplot(tot.counts.strat, aes(x = Stratum, y = TotalCount)) + geom_bar(stat = "identity") + ylab("Number of narwhals") + mytheme
 
-
-
+#====== +++ === === +++ === === +++ === ===
+# Histograms of (1) total and (2) mean counts by hour, over all strata
+#  Exclude counts associated with large vessels
+#====== +++ === === +++ === === +++ === ===
 # Use ddply to bin (1) number of counts, and (2) narwhals by hourly blocks -- do without large vessel counts
+write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
 without.vessels.dat2014 = subset(dat2014, (CountType != "PRE" & CountType != "C" & CountType != "POST"))
-fig.numbers.by.hour = ddply(without.vessels.dat2014, "datetime.rounded.to.hr", summarise, 
+fig.numbers.by.hour = ddply(without.vessels.dat2014, "rounded.hour", summarise, 
                             Numbers = sum(GroupSize, na.rm = TRUE), 
                             Counts = length(unique(Count.id))
                             ) 
@@ -49,9 +53,18 @@ fig.numbers.by.hour$Mean.number = fig.numbers.by.hour$Numbers / fig.numbers.by.h
 write.csv(x = fig.numbers.by.hour, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 # Bar graph of numbers (or average numbers) by hour
-ggplot(fig.numbers.by.hour, aes(x = datetime.rounded.to.hr, y = Counts)) + geom_bar(stat = "identity") # total counts
-ggplot(fig.numbers.by.hour, aes(x = datetime.rounded.to.hr, y = Counts)) + geom_bar(stat = "identity") + mytheme # total counts
-ggplot(fig.numbers.by.hour, aes(x = datetime.rounded.to.hr, y = Mean.number)) + geom_bar(stat = "identity") # average number per count
+every.four.hrs = c("00:00", "04:00", "08:00", "12:00", "16:00", "20:00")
+#ggplot(fig.numbers.by.hour, aes(x = rounded.hour, y = Counts)) + geom_bar(stat = "identity") # total counts
+
+# total counts
+ggplot(fig.numbers.by.hour, aes(x = rounded.hour, y = Counts)) + geom_bar(stat = "identity") + mytheme + 
+  ylab("Number of narwhals") + xlab("Time of Day") + scale_x_discrete(breaks=every.four.hrs)
+
+# Mean number of narwhals per count  
+ggplot(fig.numbers.by.hour, aes(x = rounded.hour, y = Mean.number)) +
+  geom_bar(stat = "identity") + mytheme + ylab("Mean number of narwhals per count") + xlab("Time of Day") +
+  scale_x_discrete(breaks=every.four.hrs)
+
 
 #====== +++ === === +++ === === +++ === ===
 # Try boxplot of distribution of numbers by hour
@@ -86,8 +99,7 @@ numbers.by.count.and.strata = ddply(dat2014, "Count.id", summarise,
 
 write.csv(x = numbers.by.count.and.strata, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
-# TODO: get data.frame above into format for plotting ggplot heat map
-# Think we're going to need to 'melt' this data.frame
+# Get data.frame above into format for plotting ggplot heat map
 heat.dat = subset(numbers.by.count.and.strata, select = -c(Numbers, DateTime)) # simplify data.frame (debugging)
 heat.dat = melt(heat.dat, id = 'Count.id') # go from wide to long data.frame format -- use function melt()
 head(heat.dat)
@@ -96,28 +108,72 @@ write.csv(x = heat.dat, file = "foo.csv", row.names = FALSE); system("open foo.c
 
 qplot(x = Count.ID, y = Stratum, data = heat.dat, fill = Numbers, geom = "raster", ylab = "Stratum") # Looks like a first step!!
 
-col.ramp.Function = colorRampPalette(c("black", "grey70")) # create a color palette
-palettesize = max(heat.dat$Numbers)
-col.ramp = col.ramp.Function(palettesize)
+# col.ramp.Function = colorRampPalette(c("black", "grey70")) # create a color palette
+# palettesize = max(heat.dat$Numbers)
+# col.ramp = col.ramp.Function(palettesize)
 
 (heat.map.strata = ggplot(heat.dat, aes(x = Count.ID, y = Stratum, fill = Numbers)) + geom_tile())
 heat.map.strata = heat.map.strata + scale_y_discrete(limits=rev(levels(heat.dat$Stratum))) # reverse y-axis to coincide with orientation of strata
 heat.map.strata
-heat.map.strata = heat.map.strata + scale_fill_gradient2(low = col.ramp[1],
-                                                          mid = col.ramp[palettesize / 2], 
-                                                          high = col.ramp[palettesize],
-                                                          midpoint = (max(heat.dat$Numbers) + min(heat.dat$Numbers)) / 2, 
-                                                          name = "Numbers")
-heat.map.strata
-heat.map.strata = heat.map.strata + coord_cartesian(xlim = range(heat.dat$Count.ID))
-heat.map.strata
 
-?scale_fill_gradient2
-?colorRampPalette
+# heat.map.strata = heat.map.strata + scale_fill_gradient2(low = col.ramp[1],
+#                                                           mid = col.ramp[palettesize / 2], 
+#                                                           high = col.ramp[palettesize],
+#                                                           midpoint = (max(heat.dat$Numbers) + min(heat.dat$Numbers)) / 2, 
+#                                                           name = "Numbers")
+# heat.map.strata
+# heat.map.strata = heat.map.strata + coord_cartesian(xlim = range(heat.dat$Count.ID))
+# heat.map.strata
 
+#====== +++ === === +++ === === +++ === ===
+# Heatmap showing numbers in each strata for each count
+#  Condition this on only "G" and "Excellent" Sightability
+#====== +++ === === +++ === === +++ === ===
+dat2014.include = subset(dat2014, Include.count == TRUE)
+length(unique(dat2014.include$Count.id))
+numbers.by.count.and.strata.include = ddply(dat2014.include, "Count.id", summarise, 
+                                    Numbers = sum(GroupSize, na.rm = TRUE), 
+                                    DateTime = unique(datetime),
+                                    A = sum(GroupSize[which(Stratum=="A")], na.rm = TRUE), # this is pretty cluggy
+                                    B = sum(GroupSize[which(Stratum=="B")], na.rm = TRUE),
+                                    C = sum(GroupSize[which(Stratum=="C")], na.rm = TRUE),
+                                    D = sum(GroupSize[which(Stratum=="D")], na.rm = TRUE),
+                                    E = sum(GroupSize[which(Stratum=="E")], na.rm = TRUE),
+                                    F = sum(GroupSize[which(Stratum=="F")], na.rm = TRUE),
+                                    G = sum(GroupSize[which(Stratum=="G")], na.rm = TRUE),
+                                    H = sum(GroupSize[which(Stratum=="H")], na.rm = TRUE),
+                                    I = sum(GroupSize[which(Stratum=="I")], na.rm = TRUE)                                     
+) 
 
+write.csv(x = numbers.by.count.and.strata.include, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
+# Get data.frame above into format for plotting ggplot heat map
+heat.dat = subset(numbers.by.count.and.strata.include, select = -c(Numbers)) # simplify data.frame (debugging)
+heat.dat = melt(heat.dat, id = c('Count.id', 'DateTime')) # go from wide to long data.frame format -- use function melt()
 
+names(heat.dat) = c("Count.ID", "DateTime","Stratum", "Numbers") 
+
+brks = seq(1, 151, by = 50)
+labls = numbers.by.count.and.strata$DateTime[brks] # Want to strip out Month and Day , ie. "14 Aug" for tick marks on x-axis
+labls = format(labls, format = "%d %b") # see Crawley's book p. 92 for full list of formats
+
+(heat.map.strata = ggplot(heat.dat, aes(x = Count.ID, y = Stratum, fill = Numbers)) + geom_tile())
+heat.map.strata = heat.map.strata + scale_y_discrete(limits=rev(levels(heat.dat$Stratum))) # reverse y-axis to coincide with orientation of strata
+heat.map.strata = heat.map.strata + scale_x_discrete(breaks = brks, labels = labls) + xlab("Date")
+heat.map.strata 
+
+# TODO: Splice the heat map together, perhaps by renumbering 'count.id.2' which is sequention. See x-axis Fig 21
+
+#====== +++ === === +++ === === +++ === ===
+# Have a look at faceted scatterplots showing numbers in sub-stratum and tide.delta
+#====== +++ === === +++ === === +++ === ===
+# start working with 'included' data here
+names(dat2014.include)
+
+# This shows group size as a function of tidal flow (delta)
+qplot(x = delta, y = GroupSize, data = dat2014.include, facets = Stratum ~ SubStratum.num)
+
+# TODO : Show total numbers per count 
 
 #====== +++ === === +++ === === +++ === ===
 # First Draft at Map 
