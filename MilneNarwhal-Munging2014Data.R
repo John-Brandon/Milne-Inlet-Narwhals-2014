@@ -83,6 +83,12 @@ for(ii in 1:length(unique(dat2014$datetime))){ # probably a more elegant way to 
 write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
+# TODO : Create a data.frame with TotalCount by SubStratum and Count.id
+#====== +++ === === +++ === === +++ === ===
+
+
+
+#====== +++ === === +++ === === +++ === ===
 # Summarize abundance by SubStratum (integrating over time)
 #====== +++ === === +++ === === +++ === ===
 tot.counts = group.size
@@ -103,6 +109,13 @@ write.csv(x = tot.counts.subs, file = "foo.csv", row.names = FALSE); system("ope
 tot.counts.strat = ddply(tot.counts, "Stratum", summarise, TotalCount = sum(TotalCount)) # uses 'plyr' package, could also use function aggregate
 head(tot.counts.strat) # check
 tot.counts.strat
+
+#====== +++ === === +++ === === +++ === ===
+# Summarize by Sub-Stratum (integrating over time) -- tot.counts.strat is plotted as histogram in plotting script
+#====== +++ === === +++ === === +++ === ===
+tot.counts.substrat = ddply(tot.counts, "SubStratum", summarise, TotalCount = sum(TotalCount)) # uses 'plyr' package, could also use function aggregate
+head(tot.counts.substrat) # check
+tot.counts.substrat
 
 #====== +++ === === +++ === === +++ === ===
 # Designate survey.counts for Inclusion:
@@ -172,6 +185,23 @@ dat.tides.2014.subset = subset(dat.tides.2014, select = c(datetime, Elevation, h
 dat2014 = merge(x = dat2014, y = dat.tides.2014.subset, by.x = "datetime.rounded.to.five.min", by.y = "datetime")
 
 write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+#====== +++ === === +++ === === +++ === ===
+# Sum the total narwhals in each count for each sub-stratum, keeping information like tide and vessel presence for each count
+#====== +++ === === +++ === === +++ === ===
+
+# TODO : jbrandon
+
+#====== +++ === === +++ === === +++ === ===
+# Add a column with a factor for GroupSize. Two levels: (1) ZeroCount and (2) PositiveCount
+#====== +++ === === +++ === === +++ === ===
+dat2014$GroupSizeLevel = rep(NA, nrow(dat2014))
+dat2014$GroupSizeLevel[which(dat2014$GroupSize == 0)] = "ZeroCount"
+dat2014$GroupSizeLevel[which(dat2014$GroupSize > 0)] = "PositiveCount"
+#====== +++ === === +++ === === +++ === ===
+# Create another data.frame, with a subset of the counts which meet sightability criteria
+#====== +++ === === +++ === === +++ === ===
+dat2014.include = subset(dat2014, Include.count == TRUE)
 
 #====== +++ === === +++ === === +++ === ===
 # Save workspace image

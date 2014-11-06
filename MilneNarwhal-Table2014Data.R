@@ -70,6 +70,48 @@ table.all.numbers = ddply(dat2014, "Date", summarise, # TODO (jbrandon): again, 
 write.csv(x = table.all.numbers, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
+# Number of narwhals (individuals) per sub-stratum 
+#====== +++ === === +++ === === +++ === ===
+unique(dat2014$SubStratum) 
+
+# table.substram.numbers = ddply(dat2014, "Count.id", summarise, # TODO (jbrandon): again, horrible name for a table. Revise.
+#                                for (ii in 1:length(unique(dat2014$SubStratum))) {
+#                                  ii = sum(GroupSize[which(SubStratum==unique(SubStratum)[ii])], na.rm = TRUE)
+#                                }) 
+                               
+table.substram.numbers = ddply(dat2014, "Count.id", summarise, # TODO (jbrandon): again, horrible name for a table. Revise.
+                               A1 = sum(GroupSize[which(SubStratum=="A1")], na.rm = TRUE), # this is pretty cluggy
+                               A2 = sum(GroupSize[which(SubStratum=="A2")], na.rm = TRUE),       
+                               A3 = sum(GroupSize[which(SubStratum=="A3")], na.rm = TRUE),
+                               B1 = sum(GroupSize[which(SubStratum=="B1")], na.rm = TRUE),
+                               B2 = sum(GroupSize[which(SubStratum=="B2")], na.rm = TRUE),
+                               B2 = sum(GroupSize[which(SubStratum=="B2")], na.rm = TRUE),
+                               C1 = sum(GroupSize[which(SubStratum=="C1")], na.rm = TRUE),
+                               C2 = sum(GroupSize[which(SubStratum=="C2")], na.rm = TRUE),
+                               C3 = sum(GroupSize[which(SubStratum=="C3")], na.rm = TRUE),
+                               D1 = sum(GroupSize[which(SubStratum=="D1")], na.rm = TRUE),
+                               D2 = sum(GroupSize[which(SubStratum=="D2")], na.rm = TRUE),
+                               D3 = sum(GroupSize[which(SubStratum=="D3")], na.rm = TRUE),
+                               E1 = sum(GroupSize[which(SubStratum=="E1")], na.rm = TRUE),
+                               E2 = sum(GroupSize[which(SubStratum=="E2")], na.rm = TRUE),
+                               E3 = sum(GroupSize[which(SubStratum=="E3")], na.rm = TRUE),
+                               F1 = sum(GroupSize[which(SubStratum=="F1")], na.rm = TRUE),
+                               F2 = sum(GroupSize[which(SubStratum=="F2")], na.rm = TRUE),
+                               F3 = sum(GroupSize[which(SubStratum=="F3")], na.rm = TRUE),
+                               G1 = sum(GroupSize[which(SubStratum=="G1")], na.rm = TRUE),
+                               G2 = sum(GroupSize[which(SubStratum=="G2")], na.rm = TRUE),
+                               G3 = sum(GroupSize[which(SubStratum=="G3")], na.rm = TRUE),
+                               H1 = sum(GroupSize[which(SubStratum=="H1")], na.rm = TRUE),
+                               H2 = sum(GroupSize[which(SubStratum=="H2")], na.rm = TRUE),
+                               H3 = sum(GroupSize[which(SubStratum=="H3")], na.rm = TRUE),
+                               I1 = sum(GroupSize[which(SubStratum=="I1")], na.rm = TRUE),
+                               I2 = sum(GroupSize[which(SubStratum=="I2")], na.rm = TRUE),
+                               I3 = sum(GroupSize[which(SubStratum=="I3")], na.rm = TRUE)) # , Counts.With.Vessel = would be nice to add this but do by hand for now
+                          
+
+write.csv(x = table.all.numbers, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+#====== +++ === === +++ === === +++ === ===
 # subset data to exclude abundance counts that included at least one strata with poor sightability
 #====== +++ === === +++ === === +++ === ===
 dat2014.keepers = subset(dat2014, IncludeCount == TRUE) # IncludeCount is column with TRUE / FALSE in each row

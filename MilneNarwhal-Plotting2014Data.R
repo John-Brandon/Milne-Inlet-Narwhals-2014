@@ -13,9 +13,11 @@
 #  3) These data are also known as "Relative Abundance and Distribution" (RAD) data 
 #  4) Loads existing workspace, that contains 2014 data (dat2014) and some tables created in 'MilneNarwhal-Table2014Data.R' script
 #====== +++ === === +++ === === +++ === ===
-library(plyr)
-library(ggplot2)
-library(RColorBrewer)
+library(plyr) # for working with data
+library(mgcv) # provides capability to plot smoothed functions 
+library(ggplot2) # for plotting
+library(RColorBrewer) # for creating color palettes
+
 # base.dir = "~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code"
 # wrk.space = "MilneNarwhal.2014.RData"
 # wrk.space = paste(base.dir, wrk.space, sep"/")
@@ -129,8 +131,6 @@ heat.map.strata
 # Heatmap showing numbers in each strata for each count
 #  Condition this on only "G" and "Excellent" Sightability
 #====== +++ === === +++ === === +++ === ===
-dat2014.include = subset(dat2014, Include.count == TRUE)
-length(unique(dat2014.include$Count.id))
 numbers.by.count.and.strata.include = ddply(dat2014.include, "Count.id", summarise, 
                                     Numbers = sum(GroupSize, na.rm = TRUE), 
                                     DateTime = unique(datetime),
@@ -149,20 +149,24 @@ write.csv(x = numbers.by.count.and.strata.include, file = "foo.csv", row.names =
 
 # Get data.frame above into format for plotting ggplot heat map
 heat.dat = subset(numbers.by.count.and.strata.include, select = -c(Numbers)) # simplify data.frame (debugging)
-heat.dat = melt(heat.dat, id = c('Count.id', 'DateTime')) # go from wide to long data.frame format -- use function melt()
+heat.dat$Count.id2 = 1:nrow(heat.dat)
+heat.dat.melted = melt(heat.dat, id = c('Count.id', 'Count.id2','DateTime')) # go from wide to long data.frame format -- use function melt()
 
-names(heat.dat) = c("Count.ID", "DateTime","Stratum", "Numbers") 
+names(heat.dat.melted) = c("Count.ID", "Count.ID2","DateTime","Stratum", "Numbers") 
 
-brks = seq(1, 151, by = 50)
-labls = numbers.by.count.and.strata$DateTime[brks] # Want to strip out Month and Day , ie. "14 Aug" for tick marks on x-axis
-labls = format(labls, format = "%d %b") # see Crawley's book p. 92 for full list of formats
-
-(heat.map.strata = ggplot(heat.dat, aes(x = Count.ID, y = Stratum, fill = Numbers)) + geom_tile())
-heat.map.strata = heat.map.strata + scale_y_discrete(limits=rev(levels(heat.dat$Stratum))) # reverse y-axis to coincide with orientation of strata
+(heat.map.strata = ggplot(heat.dat.melted, aes(x = Count.ID2, y = Stratum, fill = Numbers)) + geom_tile())
+heat.map.strata = heat.map.strata + scale_y_discrete(limits=rev(levels(heat.dat.melted$Stratum))) # reverse y-axis to coincide with orientation of strata
 heat.map.strata = heat.map.strata + scale_x_discrete(breaks = brks, labels = labls) + xlab("Date")
-heat.map.strata 
+heat.map.strata
 
-# TODO: Splice the heat map together, perhaps by renumbering 'count.id.2' which is sequention. See x-axis Fig 21
+# brks = seq(1, 151, by = 50)
+# labls = numbers.by.count.and.strata$DateTime[brks] # Want to strip out Month and Day , ie. "14 Aug" for tick marks on x-axis
+# labls = format(labls, format = "%d %b") # see Crawley's book p. 92 for full list of formats
+# 
+# (heat.map.strata = ggplot(heat.dat.melted, aes(x = Count.ID, y = Stratum, fill = Numbers)) + geom_tile())
+# heat.map.strata = heat.map.strata + scale_y_discrete(limits=rev(levels(heat.dat.melted$Stratum))) # reverse y-axis to coincide with orientation of strata
+# heat.map.strata = heat.map.strata + scale_x_discrete(breaks = brks, labels = labls) + xlab("Date")
+# heat.map.strata 
 
 #====== +++ === === +++ === === +++ === ===
 # Have a look at faceted scatterplots showing numbers in sub-stratum and tide.delta
@@ -171,9 +175,37 @@ heat.map.strata
 names(dat2014.include)
 
 # This shows group size as a function of tidal flow (delta)
-qplot(x = delta, y = GroupSize, data = dat2014.include, facets = Stratum ~ SubStratum.num)
+qplot(x = delta, y = GroupSize, data = dat2014.include, facets = Stratum ~ SubStratum.num) # first draft with qplot
 
-# TODO : Show total numbers per count 
+head(dat2014.include)
+g = ggplot(dat2014.include, aes(delta, GroupSize, colour = GroupSizeLevel)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
+g = g + geom_point() + facet_grid(Stratum ~ SubStratum.num) # geom_smooth(method = "lm")
+g + scale_y_continuous(limits = c(0, 15))
+
+g = ggplot(dat2014.include, aes(delta, GroupSize, shape = GroupSizeLevel)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
+g = g + geom_point() + facet_grid(Stratum ~ SubStratum.num) # geom_smooth(method = "lm")
+g + scale_y_continuous(limits = c(0, 15)) + scale_shape_manual(values = c(19,4))
+
+
+g = ggplot(dat2014.include, aes(x = delta, y = GroupSize, colour = Vessel.related.count)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
+g + geom_point() + facet_grid(Stratum ~ SubStratum.num) 
+
+# Plot tide elevation on x-axis instead of 'delta'
+gElev = ggplot(dat2014.include, aes(x = Elevation, y = GroupSize)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
+gElev + geom_point() + facet_grid(Stratum ~ SubStratum.num) 
+
+g = ggplot(dat2014.include, aes(x = delta, y = GroupSize, colour = Direction)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
+g + geom_point() + facet_grid(Stratum ~ SubStratum.num) + scale_colour_brewer(palette = "Set1")
+
+unique(dat2014.include$Direction)
+unique(dat2014.include$Vessel.related.count)
+
+#====== +++ === === +++ === === +++ === ===
+# TODO jbrandon : Show total numbers per count 
+head(numbers.by.count.and.strata)
+head(numbers.by.count.and.strata.include)
+write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
 
 #====== +++ === === +++ === === +++ === ===
 # First Draft at Map 
