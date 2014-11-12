@@ -14,6 +14,8 @@
 #  4) Loads existing workspace, that contains 2014 data (dat2014)
 #====== +++ === === +++ === === +++ === ===
 library(plyr) # Hadley Wickham's "Plier" package for splitting data.frames and applying functions to each subset
+# install.packages("dplyr")
+library(dplyr)
 
 rm(list=ls()) # clear leftovers from previous workspace
 
@@ -21,7 +23,118 @@ load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal
 
 setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data, really for outputting tables (data has already been read)
 
-write.csv(x = dat2014, file = "foo.csv"); system("open foo.csv") # check
+# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+#====== +++ === === +++ === === +++ === ===
+# Table counts of group sizes by sub-stratum
+#====== +++ === === +++ === === +++ === ===
+group.size = table(dat2014$SubStratum, dat2014$GroupSize) # ?table
+group.size = as.data.frame(group.size) # data.frame with group size frequencies in counts (e.g. 1 group of 34 in substratum F1, 0 groups of 33, etc.)
+names(group.size) = c("SubStratum", "GroupSize", "Freq") # make it easier to read
+
+group.size$GroupSize = as.numeric.factor(group.size$GroupSize) # convert GroupSize from factor to numeric
+group.size = group.size[order(group.size$GroupSize),] # sort table on GroupSize
+
+# write.csv(file = "foo.csv", x = group.size, row.names = FALSE); system("open foo.csv") # check
+
+#====== +++ === === +++ === === +++ === ===
+# Take frequencies of different group sizes in each substratum to get total numbers associated with different group sizes in each substratum 
+#====== +++ === === +++ === === +++ === ===
+tot.counts = group.size
+#ii = sapply(tot.counts, is.factor) # intermediate step to convert columns that are presently factors to characters
+#tot.counts[ii] <- lapply(tot.counts[ii], as.character) # convert columns that are factors to character strings
+tot.counts$TotalCount = as.numeric(tot.counts$GroupSize) * tot.counts$Freq # TotalCounts are product of group size and numbers of groups
+tot.counts$Stratum = substring(tot.counts$SubStratum, first = 1, last = 1) # Create a vector with Stratum from SubStratum vector
+tot.counts$SubStratum.num = substring(tot.counts$SubStratum, first = 2, last = 2) # Create a vector with SubStratum.num from SubStratum vector
+
+#====== +++ === === +++ === === +++ === ===
+# Summarize abundance by SubStratum (integrating over time)
+#====== +++ === === +++ === === +++ === ===
+tot.counts.subs = ddply(tot.counts, "SubStratum", summarise, TotalCount = sum(TotalCount, na.rm = TRUE)) # uses 'plyr' package, could also use function aggregate
+
+write.csv(x = tot.counts.subs, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+#====== +++ === === +++ === === +++ === ===
+# Summarize by Stratum (integrating over time) -- tot.counts.strat is plotted as histogram in plotting script
+#====== +++ === === +++ === === +++ === ===
+tot.counts.strat = ddply(tot.counts, "Stratum", summarise, TotalCount = sum(TotalCount, na.rm = TRUE)) # uses 'plyr' package, could also use function aggregate
+# head(tot.counts.strat) # check
+# with(tot.counts.strat, sum(TotalCount)) # check
+
+#====== +++ === === +++ === === +++ === ===
+# Summarize by Sub-Stratum (integrating over time) -- tot.counts.strat is plotted as histogram in plotting script
+#====== +++ === === +++ === === +++ === ===
+tot.counts.substrat = ddply(tot.counts, "SubStratum", summarise, TotalCount = sum(TotalCount, na.rm = TRUE)) # uses 'plyr' package, could also use function aggregate
+# head(tot.counts.substrat) # check
+# with(tot.counts.substrat, sum(TotalCount)) # check
+
+#====== +++ === === +++ === === +++ === ===
+# TODO : Create a data.frame with TotalCount by SubStratum and Count.id
+#  Note: using .(x, y) in ddply saves having to put quotes around "x" and "y" (e.g. see previous ddply with "SubStratum" example above)
+#====== +++ === === +++ === === +++ === ===
+head(dat2014)
+str(dat2014)
+total.counts.by.sub.stratum = ddply(dat2014, .(Count.id, SubStratum), summarise, 
+            TotalCount.with.na = sum(GroupSize, na.rm = FALSE), 
+            TotalCount.without.na = sum(GroupSize, na.rm = TRUE),
+            sightabilities = ifelse(length(unique(Sightability)) > 0, paste(unique(Sightability), collapse = "," ), NA),
+            datetime = unique(datetime), 
+            datetime.rounded.to.hr = unique(datetime.rounded.to.hr),
+            datetime.rounded.to.half.hr = unique(datetime.nearest.half.hr),                        
+            CountType = unique(CountType),
+            Vessel.related.count = unique(Vessel.related.count),
+            Include.count = unique(Include.count)
+                                    ) # returns numbers by sub-strata for each count.id
+
+total.counts.by.sub.stratum$Stratum = substring(total.counts.by.sub.stratum$SubStratum, first = 1, last = 1) # Create a vector with Stratum from SubStratum vector
+total.counts.by.sub.stratum$SubStratum.num = substring(total.counts.by.sub.stratum$SubStratum, first = 2, last = 2) # Create a vector with SubStratum.num from SubStratum vector   
+
+write.csv(x = total.counts.by.sub.stratum, file = "total.counts.by.sub.stratum.csv", row.names = FALSE); system("open total.counts.by.sub.stratum.csv") # check
+
+foo = ddply(total.counts.by.sub.stratum, "Count.id", summarise, 
+            datetime.rounded.to.hr = unique(datetime.rounded.to.hr),
+            datetime.rounded.to.half.hr = unique(datetime.rounded.to.half.hr)
+            )
+foo$duplicated = duplicated(foo$datetime.rounded.to.hr)
+foo$duplicated.half.hr = duplicated(foo$datetime.rounded.to.half.hr)
+foo$datetime.rounded.to.hr[duplicated(foo$datetime.rounded.to.hr)] 
+foo$datetime.rounded.to.half.hr[duplicated(foo$datetime.rounded.to.half.hr)]
+
+write.csv(x = foo, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+?merge
+foo2 = merge(x = total.counts.by.sub.stratum, y = foo, by.x = "Count.id", by.y = "Count.id")
+write.csv(x = foo2, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
+
+with(foo, sum(TotalCount, na.rm = TRUE)) # check -- 10463
+
+names(dat2014)
+unique(dat2014$Direction)
+table(dat2014$Direction)
+
+foo = ddply(dat2014, .(Count.id, Stratum), summarise, TotalCount = sum(GroupSize, na.rm = TRUE), datetime = unique(datetime))
+
+write.csv(x = foo, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+# with(airquality,
+#      table(OzHi = Ozone > 80, Month, useNA = "ifany"))
+
+#====== +++ === === +++ === === +++ === ===
+# Look at breakdown of sightability during vessel counts
+#====== +++ === === +++ === === +++ === ===
+vessel.counts = subset(dat2014, CountType %in% c("PRE", "C", "POST")) # just counts associated with vessel transits
+write.csv(x = vessel.counts, file = "2014.vessel.counts.csv", row.names = FALSE); system("open 2014.vessel.counts.csv") # check
+
+vessel.sightability = melt(table(vessel.counts$Sightability, vessel.counts$CountType)) # returns a data.frame
+names(vessel.sightability) = c("Sightability", "CountType", "SubStratumCounts")
+
+write.csv(x = vessel.sightability, file = "2014.vessel.sightability.csv", row.names = FALSE); system("open 2014.vessel.sightability.csv") # check
+
+arrange(vessel.sightability, Sightability)
+vessel.sight.category.sums = ddply(vessel.sightability, "Sightability", summarise, SubStratumCounts = sum(SubStratumCounts))
+vessel.sight.category.sums$Percentage = vessel.sight.category.sums$SubStratumCounts / sum(vessel.sight.category.sums$SubStratumCounts)
+vessel.sight.category.sums$Percentage = round(vessel.sight.category.sums$Percentage, 2)
+vessel.sight.category.sums
 
 #====== +++ === === +++ === === +++ === ===
 # Table X. Abundance data effort at Bruce Head in 2014, 
@@ -68,6 +181,32 @@ table.all.numbers = ddply(dat2014, "Date", summarise, # TODO (jbrandon): again, 
                    I = sum(GroupSize[which(Stratum=="I")], na.rm = TRUE)) # , Counts.With.Vessel = would be nice to add this but do by hand for now
 
 write.csv(x = table.all.numbers, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+#====== +++ === === +++ === === +++ === ===
+# Number of narwhals (individuals) in each stratum for each count
+#====== +++ === === +++ === === +++ === ===
+numbers.by.count.and.strata = ddply(dat2014, "Count.id", summarise, # TODO Move this function call to Table script
+                                    Numbers = sum(GroupSize, na.rm = TRUE), 
+                                    DateTime = unique(datetime),
+                                    DateTime.rounded.to.hr = unique(datetime.rounded.to.hr),
+                                    A = sum(GroupSize[which(Stratum=="A")], na.rm = TRUE), # this is pretty cluggy
+                                    B = sum(GroupSize[which(Stratum=="B")], na.rm = TRUE),
+                                    C = sum(GroupSize[which(Stratum=="C")], na.rm = TRUE),
+                                    D = sum(GroupSize[which(Stratum=="D")], na.rm = TRUE),
+                                    E = sum(GroupSize[which(Stratum=="E")], na.rm = TRUE),
+                                    F = sum(GroupSize[which(Stratum=="F")], na.rm = TRUE),
+                                    G = sum(GroupSize[which(Stratum=="G")], na.rm = TRUE),
+                                    H = sum(GroupSize[which(Stratum=="H")], na.rm = TRUE),
+                                    I = sum(GroupSize[which(Stratum=="I")], na.rm = TRUE)                                     
+) 
+
+tmp = rle(as.character(numbers.by.count.and.strata$DateTime.rounded.to.hr))
+tmp$lengths
+unique(tmp$lengths)
+length(tmp$lengths)
+which(tmp$lengths > 1) # these are the 
+tmp$values[which(tmp$lengths > 1)]
+write.csv(x = numbers.by.count.and.strata, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Number of narwhals (individuals) per sub-stratum 

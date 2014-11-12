@@ -83,25 +83,8 @@ ggplot(numbers.dist.by.hour, aes(x = as.factor(Hour), y = Numbers)) + geom_point
 
 #====== +++ === === +++ === === +++ === ===
 # Try heatmap showing numbers in each strata for each count
-#  Also want to condition this on only "G" and "Excellent" Sightability
+#  TODO : Also want to condition this on only "G" and "Excellent" Sightability
 #====== +++ === === +++ === === +++ === ===
-numbers.by.count.and.strata = ddply(dat2014, "Count.id", summarise, 
-                             Numbers = sum(GroupSize, na.rm = TRUE), 
-                             DateTime = unique(datetime),
-                             A = sum(GroupSize[which(Stratum=="A")], na.rm = TRUE), # this is pretty cluggy
-                             B = sum(GroupSize[which(Stratum=="B")], na.rm = TRUE),
-                             C = sum(GroupSize[which(Stratum=="C")], na.rm = TRUE),
-                             D = sum(GroupSize[which(Stratum=="D")], na.rm = TRUE),
-                             E = sum(GroupSize[which(Stratum=="E")], na.rm = TRUE),
-                             F = sum(GroupSize[which(Stratum=="F")], na.rm = TRUE),
-                             G = sum(GroupSize[which(Stratum=="G")], na.rm = TRUE),
-                             H = sum(GroupSize[which(Stratum=="H")], na.rm = TRUE),
-                             I = sum(GroupSize[which(Stratum=="I")], na.rm = TRUE)                                     
-) 
-
-write.csv(x = numbers.by.count.and.strata, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-# Get data.frame above into format for plotting ggplot heat map
 heat.dat = subset(numbers.by.count.and.strata, select = -c(Numbers, DateTime)) # simplify data.frame (debugging)
 heat.dat = melt(heat.dat, id = 'Count.id') # go from wide to long data.frame format -- use function melt()
 head(heat.dat)

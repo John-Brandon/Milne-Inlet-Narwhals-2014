@@ -14,6 +14,7 @@
 #
 #====== +++ === === +++ === === +++ === ===
 library(plyr) # Hadley Wickham's "Plier" package for common tasks (e.g. summarizing) with data.frames
+# library(dplyr) # I think this might be an updated version of the plyr package?
 library(ggplot2)
 library(lubridate) # useful alternative functions for working with standard POSIXct format
 
@@ -29,33 +30,62 @@ dfile = "2014.milne.inlet.narwhal.csv" # 2014 RAD data file, saved as comma deli
 dat2014 = read.csv(file = dfile, header = TRUE, as.is = TRUE, na.strings = c("NA", "x", "X")) # Read data file 
 
 #====== +++ === === +++ === === +++ === ===
-# Clean up some typos
+# Function to convert factors to numeric values
 #====== +++ === === +++ === === +++ === ===
-typos.ii = which(dat2014$SubStratum == "13") 
-dat2014$SubStratum[typos.ii] = "I3"
+as.numeric.factor <- function(x) {as.numeric(levels(x))[x]} 
 
 #====== +++ === === +++ === === +++ === ===
-# Start munging
+# Clean up some typos
 #====== +++ === === +++ === === +++ === ===
-#dat2014 = cbind(dat2014, colsplit(dat2014$SubStratum, split="", names = c("Stratum", "SubStratum.num")))
+substratum.typos.ii = which(dat2014$SubStratum == "13") 
+dat2014$SubStratum[substratum.typos.ii] = "I3"
+
+group.size.typos.ii = which(dat2014$GroupSize == "I")
+dat2014$GroupSize[group.size.typos.ii] = 1
+
+dat2014$GroupSize = as.numeric(dat2014$GroupSize) # coerce if not already numeric (was read as character initially)
+
+#====== +++ === === +++ === === +++ === ===
+# Extract Stratum (A, B, C, etc) and Substratum Number (1, 2, 3, etc) from Substratum (e.g. A1, A2, A3, B1, B2, etc.)
+#====== +++ === === +++ === === +++ === ===
 dat2014$Stratum = substring(dat2014$SubStratum, first = 1, last = 1) # Create a vector with Stratum from SubStratum vector
 dat2014$SubStratum.num = substring(dat2014$SubStratum, first = 2, last = 2) # Create a vector with SubStratum.num from SubStratum vector
 
-dat2014$datetime = with(dat2014, paste(Date, Time)) 
-dat2014$datetime = as.POSIXct(dat2014$datetime) # Convert DateTime to POSIXct class
+#====== +++ === === +++ === === +++ === ===
+# Convert Date and Time into POSIXct class format
+# Date needs to be in an unambiguous format, i.e. yyyy-mm-dd (easiest to set format in Excel if this is ambiguous)
+#  head(dat2014$Date)  # check
+#====== +++ === === +++ === === +++ === ===
 
-dat2014$datetime = force_tz(time = dat2014$datetime, tzone = "America/Iqaluit") # change from default time zone to EDT, but don't change time
+convert.datetime = function(dat){
+# dat is a data.frame
+  dat$datetime = with(dat, paste(Date, Time)) 
+  dat$datetime = as.POSIXct(dat$datetime) # Convert DateTime to POSIXct class
+  dat$datetime = ymd_hms(dat$datetime) # Not sure this is necessary to work with 'lubridate' functions. POSIXct might be sufficient.
+  dat$datetime = force_tz(time = dat$datetime, tzone = "America/Iqaluit") # change from default time zone to EDT, but don't change time
+  return(dat)  
+}
 
-length(unique(dat2014$datetime)) # number of "Relative Abundance and Distribution" (RAD) samples in 2014
+dat2014 = convert.datetime(dat2014)
+
+# dat2014$datetime = with(dat2014, paste(Date, Time)) 
+# dat2014$datetime = as.POSIXct(dat2014$datetime) # Convert DateTime to POSIXct class
+# 
+# dat2014$datetime = force_tz(time = dat2014$datetime, tzone = "America/Iqaluit") # change from default time zone to EDT, but don't change time
+# 
+# length(unique(dat2014$datetime)) # number of "Relative Abundance and Distribution" (RAD) samples in 2014
 
 #====== +++ === === +++ === === +++ === ===
-# Keep munging:
-# Table counts of group sizes by sub-stratum
+# Create a sequence of Date/Times, from the start of the season to the end of the season:
+#  Incrementing (1) every hour, and (2) every half hour
 #====== +++ === === +++ === === +++ === ===
-group.size = table(dat2014$SubStratum, dat2014$GroupSize) # ?table
-group.size = as.data.frame(group.size) # data.frame with group size frequencies in counts (e.g. 1 group of 34 in substratum F1, 0 groups of 33, etc.)
-names(group.size) = c("SubStratum", "GroupSize", "Freq") # make it easier to read
-write.csv(file = "foo.csv", x = group.size, row.names = FALSE); system("open foo.csv") # check
+start.season = unique(dat2014$datetime)[1]
+increment.timestamp = 60
+end.season = unique(dat2014$datetime)[length(unique(dat2014$datetime))]
+hour(end.season) = 23 # take it to the end of the last day
+hourly.timestamps = seq(from=start.season, by=increment.timestamp*60, to=end.season)
+increment.timestamp = 30
+half.hourly.timestamps = seq(from=start.season, by=increment.timestamp*60, to=end.season)
 
 #====== +++ === === +++ === === +++ === ===
 # Add a column to data.frame, assigning TRUE or FALSE to vessel count
@@ -65,57 +95,37 @@ dat2014$Vessel.related.count = rep(FALSE, nrow(dat2014)) # create dummy column t
 Vessel.related.count.ii = which(dat2014$CountType %in% c("PRE", "C", "POST")) # which CountType records are "PRE", "C" or "POST"
 dat2014$Vessel.related.count[Vessel.related.count.ii] = TRUE  # fill column
 
-write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Make a column which assigns an ID number for each count (a single day may have multiple counts)
 # TODO (jbrandon): Move this code to 'Munging' script
 #====== +++ === === +++ === === +++ === ===
-count.id = seq(from = 1, to = length(unique(dat2014$datetime))); count.id 
-ii = NULL
-dat2014$Count.id = rep(-99, nrow(dat2014))
-for(ii in 1:length(unique(dat2014$datetime))){ # probably a more elegant way to do this, rather than a loop.
-  rec.numbers = NULL
-  rec.numbers = which(dat2014$datetime == unique(dat2014$datetime)[ii])  
-  dat2014$Count.id[rec.numbers] = count.id[ii]
+assign.count.ids = function(dat.df){
+  count.id = seq(from = 1, to = length(unique(dat.df$datetime)))
+  ii = NULL
+  dat.df$Count.id = rep(-99, nrow(dat.df))
+  for(ii in 1:length(unique(dat.df$datetime))){ # probably a more elegant way to do this, rather than a loop.
+    rec.numbers = NULL
+    rec.numbers = which(dat.df$datetime == unique(dat.df$datetime)[ii])  
+    dat.df$Count.id[rec.numbers] = count.id[ii]
+  }
+  return(dat.df)
 }
 
-write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+dat2014 = assign.count.ids(dat2014)
 
-#====== +++ === === +++ === === +++ === ===
-# TODO : Create a data.frame with TotalCount by SubStratum and Count.id
-#====== +++ === === +++ === === +++ === ===
+# count.id = seq(from = 1, to = length(unique(dat2014$datetime))); count.id 
+# ii = NULL
+# dat2014$Count.id = rep(-99, nrow(dat2014))
+# for(ii in 1:length(unique(dat2014$datetime))){ # probably a more elegant way to do this, rather than a loop.
+#   rec.numbers = NULL
+#   rec.numbers = which(dat2014$datetime == unique(dat2014$datetime)[ii])  
+#   dat2014$Count.id[rec.numbers] = count.id[ii]
+# }
 
+# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
-
-#====== +++ === === +++ === === +++ === ===
-# Summarize abundance by SubStratum (integrating over time)
-#====== +++ === === +++ === === +++ === ===
-tot.counts = group.size
-ii = sapply(tot.counts, is.factor) # intermediate step to convert columns that are presently factors to characters
-tot.counts[ii] <- lapply(tot.counts[ii], as.character) # convert columns that are factors to character strings
-tot.counts$TotalCount = as.numeric(tot.counts$GroupSize) * tot.counts$Freq # TotalCounts are product of group size and numbers of groups
-tot.counts$Stratum = substring(tot.counts$SubStratum, first = 1, last = 1) # Create a vector with Stratum from SubStratum vector
-tot.counts$SubStratum.num = substring(tot.counts$SubStratum, first = 2, last = 2) # Create a vector with SubStratum.num from SubStratum vector
-
-tot.counts.subs = ddply(tot.counts, "SubStratum", summarise, TotalCount = sum(TotalCount)) # uses 'plyr' package, could also use function aggregate
-# tot.counts.subs = aggregate(tot.counts.tmp$TotalCount, by = list(SubStratum = tot.counts.tmp$SubStratum), sum) # same result as line above
-
-write.csv(x = tot.counts.subs, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-#====== +++ === === +++ === === +++ === ===
-# Summarize by Stratum (integrating over time) -- tot.counts.strat is plotted as histogram in plotting script
-#====== +++ === === +++ === === +++ === ===
-tot.counts.strat = ddply(tot.counts, "Stratum", summarise, TotalCount = sum(TotalCount)) # uses 'plyr' package, could also use function aggregate
-head(tot.counts.strat) # check
-tot.counts.strat
-
-#====== +++ === === +++ === === +++ === ===
-# Summarize by Sub-Stratum (integrating over time) -- tot.counts.strat is plotted as histogram in plotting script
-#====== +++ === === +++ === === +++ === ===
-tot.counts.substrat = ddply(tot.counts, "SubStratum", summarise, TotalCount = sum(TotalCount)) # uses 'plyr' package, could also use function aggregate
-head(tot.counts.substrat) # check
-tot.counts.substrat
 
 #====== +++ === === +++ === === +++ === ===
 # Designate survey.counts for Inclusion:
@@ -128,8 +138,6 @@ tot.counts.substrat
 unique(dat2014$Sightability)
 length(which(is.na(dat2014$Sightability)))
 length(which(dat2014$Sightability == "P")) 
-length(which(dat2014$Sightability == "L")) # TODO (hsmith): Data needs QC checking
-length(which(dat2014$Sightability == 3))  # TODO (hsmith): Data needs QC checking
 
 unique(dat2014$Count.id[which(is.na(dat2014$Sightability))]) # check to see which count.id's had NA's for no effort (due to fog, etc.)
 unique(dat2014$Count.id[which(dat2014$Sightability == "P")]) # check to see which count.id's had P's for Poor sightability conditions
@@ -149,14 +157,14 @@ counts.to.include = ddply(dat2014, "Count.id", summarise, Include.count = CountI
 
 dat2014 = merge(x = dat2014, y = counts.to.include, by.x = "Count.id", by.y = "Count.id") # expand from concise counts.to.include to full length column in data.frame 
 
-write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Rounding 'datetime' (class POSIXct) to nearest hour
 #  Do this with just the hour (no date) and with datetime
 #====== +++ === === +++ === === +++ === ===
 rounded.hour = dat2014$datetime # create a new column that will contain datetime rounded to the nearest hour 
-rounded.hour = format(round(datetime.rounded.to.hr, units="hours"), format="%H:%M") # seems to work
+rounded.hour = format(round(rounded.hour, units="hours"), format="%H:%M") # seems to work
 dat2014$rounded.hour = rounded.hour # append the rounded hours to data.frame
 
 datetime.rounded.to.hr = dat2014$datetime
@@ -166,13 +174,33 @@ dat2014$datetime.rounded.to.hr = datetime.rounded.to.hr # append the rounded hou
 # write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
+# After rounding the start times for counts to the nearest hour, there are instances where
+#  multiple counts are assigned to the same hour. This is undesirable, because we want
+#  the counts to be in an incremental sequence. So, we need to find those instances and adjust the hours 
+#  to achieve the incremental sequence. 
+#====== +++ === === +++ === === +++ === ===
+# foo = dat2014$datetime.rounded.to.hr
+# length(foo)
+# 
+# foo.dupes = duplicated(foo)
+# which(foo.dupes == TRUE)
+# rm(foo); rm(foo.dupes)
+
+#====== +++ === === +++ === === +++ === ===
+# Rounding 'datetime' (class POSIXct) to nearest half hour 
+#  uses lubridate
+#====== +++ === === +++ === === +++ === ===
+dat2014$datetime.nearest.half.hr = dat2014$datetime
+minute(dat2014$datetime.nearest.half.hr) = round(minute(dat2014$datetime.nearest.half.hr)/30)*30 # round to nearest five minute
+
+#====== +++ === === +++ === === +++ === ===
 # Rounding 'datetime' (class POSIXct) to nearest five minute (to align with tide data, which are every 5 minutes)
 #  uses lubridate
 #====== +++ === === +++ === === +++ === ===
 dat2014$datetime.rounded.to.five.min = dat2014$datetime
-minute(dat2014$datetime.rounded.to.five.min) = floor(minute(dat2014$datetime.rounded.to.five.min)/5)*5 # round to nearest five minute
+minute(dat2014$datetime.rounded.to.five.min) = round(minute(dat2014$datetime.rounded.to.five.min)/5)*5 # round to nearest five minute
 
-write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Merge tide data into RAD count data.frame
@@ -184,13 +212,7 @@ dat.tides.2014.subset = subset(dat.tides.2014, select = c(datetime, Elevation, h
 
 dat2014 = merge(x = dat2014, y = dat.tides.2014.subset, by.x = "datetime.rounded.to.five.min", by.y = "datetime")
 
-write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-#====== +++ === === +++ === === +++ === ===
-# Sum the total narwhals in each count for each sub-stratum, keeping information like tide and vessel presence for each count
-#====== +++ === === +++ === === +++ === ===
-
-# TODO : jbrandon
+# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Add a column with a factor for GroupSize. Two levels: (1) ZeroCount and (2) PositiveCount
@@ -198,6 +220,7 @@ write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.cs
 dat2014$GroupSizeLevel = rep(NA, nrow(dat2014))
 dat2014$GroupSizeLevel[which(dat2014$GroupSize == 0)] = "ZeroCount"
 dat2014$GroupSizeLevel[which(dat2014$GroupSize > 0)] = "PositiveCount"
+
 #====== +++ === === +++ === === +++ === ===
 # Create another data.frame, with a subset of the counts which meet sightability criteria
 #====== +++ === === +++ === === +++ === ===
@@ -206,9 +229,4 @@ dat2014.include = subset(dat2014, Include.count == TRUE)
 #====== +++ === === +++ === === +++ === ===
 # Save workspace image
 #====== +++ === === +++ === === +++ === ===
-
 save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData")
-
-#====== +++ === === +++ === === +++ === ===
-# Scratch code below
-#====== +++ === === +++ === === +++ === ===
