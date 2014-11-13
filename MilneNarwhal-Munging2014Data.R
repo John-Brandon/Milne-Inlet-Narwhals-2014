@@ -46,7 +46,7 @@ dat2014$GroupSize[group.size.typos.ii] = 1
 dat2014$GroupSize = as.numeric(dat2014$GroupSize) # coerce if not already numeric (was read as character initially)
 
 #====== +++ === === +++ === === +++ === ===
-# Extract Stratum (A, B, C, etc) and Substratum Number (1, 2, 3, etc) from Substratum (e.g. A1, A2, A3, B1, B2, etc.)
+# Extract Stratum ("A", "B", "C", etc) and Substratum Number ("1", "2", "3", etc) from Substratum (e.g. A1, A2, A3, B1, B2, etc.)
 #====== +++ === === +++ === === +++ === ===
 dat2014$Stratum = substring(dat2014$SubStratum, first = 1, last = 1) # Create a vector with Stratum from SubStratum vector
 dat2014$SubStratum.num = substring(dat2014$SubStratum, first = 2, last = 2) # Create a vector with SubStratum.num from SubStratum vector
@@ -99,7 +99,6 @@ dat2014$Vessel.related.count[Vessel.related.count.ii] = TRUE  # fill column
 
 #====== +++ === === +++ === === +++ === ===
 # Make a column which assigns an ID number for each count (a single day may have multiple counts)
-# TODO (jbrandon): Move this code to 'Munging' script
 #====== +++ === === +++ === === +++ === ===
 assign.count.ids = function(dat.df){
   count.id = seq(from = 1, to = length(unique(dat.df$datetime)))
@@ -135,6 +134,10 @@ dat2014 = assign.count.ids(dat2014)
 #  Note also, that in addition to "P" for poor, if no attempt at a count was made for a sub-stratum (e.g. due to fog)
 #    then those were entered as "x" (read into R as "NA"), so those counts with any "NA" or "P" will be excluded.
 #====== +++ === === +++ === === +++ === ===
+dat2014$include.group = rep(FALSE, nrow(dat2014))
+if(dat2014$Sightability %in% c("G", "E")) dat2014$include.group = TRUE
+
+
 unique(dat2014$Sightability)
 length(which(is.na(dat2014$Sightability)))
 length(which(dat2014$Sightability == "P")) 
@@ -143,21 +146,28 @@ unique(dat2014$Count.id[which(is.na(dat2014$Sightability))]) # check to see whic
 unique(dat2014$Count.id[which(dat2014$Sightability == "P")]) # check to see which count.id's had P's for Poor sightability conditions
 
 CountInclude = function(sightability){
-  # Does this count meet the criteria of having all sub-stratum observed during Good or Excellent conditions?
+  # Does this sub-stratum count meet the criteria of having all sub-stratum observed during Good or Excellent conditions?
   # 'sightability' here is a vector containing a code ("P", "G", "E", or NA) for each sub-stratum in a given count 
   # 'include.count' is returned as TRUE or FALSE
-  unique.sight.codes = NULL; include.count = TRUE
+  unique.sight.codes = NULL; include.count = FALSE
   unique.sight.codes = unique(sightability)
-  if ("P" %in% unique(sightability)) include.count = FALSE
-  if (NA %in% unique(sightability)) include.count = FALSE
+  if (unique(sightability) %in% c("G", "E")) include.count = TRUE
   return(include.count)
 }
 
-counts.to.include = ddply(dat2014, "Count.id", summarise, Include.count = CountInclude(Sightability)) # ! means NOT in R, so if no "P" then Include = TRUE 
+names(dat2014)
 
-dat2014 = merge(x = dat2014, y = counts.to.include, by.x = "Count.id", by.y = "Count.id") # expand from concise counts.to.include to full length column in data.frame 
+# counts.to.include = ddply(dat2014, .(Count.id, SubStratum), summarise, Include.count = CountInclude(Sightability)) 
+counts.to.include = ddply(dat2014, .(Count.id, Stratum), summarise, Include.count = CountInclude(Sightability)) 
+head(counts.to.include)
+nrow(counts.to.include)
+
+# dat2014 = merge(x = dat2014, y = counts.to.include, by.x = "Count.id", by.y = "Count.id") # expand from concise counts.to.include to full length column in data.frame 
 
 # write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+foo = merge(x = dat2014, y = counts.to.include, by.x = "Count.id", by.y = "Count.id") # expand from concise counts.to.include to full length column in data.frame 
+write.csv(x = foo, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Rounding 'datetime' (class POSIXct) to nearest hour
@@ -224,7 +234,7 @@ dat2014$GroupSizeLevel[which(dat2014$GroupSize > 0)] = "PositiveCount"
 #====== +++ === === +++ === === +++ === ===
 # Create another data.frame, with a subset of the counts which meet sightability criteria
 #====== +++ === === +++ === === +++ === ===
-dat2014.include = subset(dat2014, Include.count == TRUE)
+# dat2014.include = subset(dat2014, Include.count == TRUE)
 
 #====== +++ === === +++ === === +++ === ===
 # Save workspace image

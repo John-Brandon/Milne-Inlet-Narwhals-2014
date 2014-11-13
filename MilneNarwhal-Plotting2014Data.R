@@ -38,6 +38,20 @@ mytheme = theme_grey() + theme(axis.title.x = element_text(size = rel(1.75), vju
 ggplot(tot.counts.strat, aes(x = Stratum, y = TotalCount)) + geom_bar(stat = "identity") + ylab("Number of narwhals") + mytheme
 
 #====== +++ === === +++ === === +++ === ===
+# Histogram of group sizes in sub-strata
+#====== +++ === === +++ === === +++ === ===
+g = ggplot(data = dat2014, aes(x = GroupSize)) + geom_histogram(fill = "gray40", colour = "black", binwidth = 1, na.rm = TRUE)
+g = g + facet_grid(Stratum ~ SubStratum.num)
+g + xlim(c(0, 7)) 
+
+#====== +++ === === +++ === === +++ === ===
+# Histogram of group sizes in Strata
+#====== +++ === === +++ === === +++ === ===
+g = ggplot(data = dat2014, aes(x = GroupSize)) + geom_histogram(fill = "gray40", colour = "black", binwidth = 1, na.rm = TRUE)
+g = g + facet_grid(Stratum ~ .)
+g + xlim(c(0, 5)) 
+
+#====== +++ === === +++ === === +++ === ===
 # Histograms of (1) total and (2) mean counts by hour, over all strata
 #  Exclude counts associated with large vessels
 #====== +++ === === +++ === === +++ === ===
