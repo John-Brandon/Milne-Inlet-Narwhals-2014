@@ -8,10 +8,10 @@
 ###=== === +++ === === +++ === === +++ === ===
 # Purpose : Combine 2013 and 2014 RAD (and tide) data into a single data.frame for modeling
 #  Notes : These routines work on data that has already been extracted and munged, so the first step is to load that pre-massaged data 
-#  1) Your main directory will differ. See 'base.dir' variable below to edit that path to match your system
-#  2) 
-#  3) These data are also known as "Relative Abundance and Distribution" (RAD) data 
-#  4) Loads existing workspace, that contains 2014 data (dat2014)
+#  1) Your main directory will differ. 
+#  2) These data are also known as "Relative Abundance and Distribution" (RAD) data 
+#  3) Loads existing workspace, that contains 2014 data (dat2014)
+#  4) Loads existing workspace, that contains munged 2013 and 2014 tide data
 #====== +++ === === +++ === === +++ === ===
 library(plyr) # Hadley Wickham's "Plier" package for splitting data.frames and applying functions to each subset
 library(lubridate) # package with handy functions for working with dates and times

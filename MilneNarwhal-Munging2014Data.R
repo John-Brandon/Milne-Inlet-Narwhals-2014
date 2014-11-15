@@ -56,24 +56,16 @@ dat2014$SubStratum.num = substring(dat2014$SubStratum, first = 2, last = 2) # Cr
 # Date needs to be in an unambiguous format, i.e. yyyy-mm-dd (easiest to set format in Excel if this is ambiguous)
 #  head(dat2014$Date)  # check
 #====== +++ === === +++ === === +++ === ===
-
 convert.datetime = function(dat){
 # dat is a data.frame
   dat$datetime = with(dat, paste(Date, Time)) 
   dat$datetime = as.POSIXct(dat$datetime) # Convert DateTime to POSIXct class
-  dat$datetime = ymd_hms(dat$datetime) # Not sure this is necessary to work with 'lubridate' functions. POSIXct might be sufficient.
+  dat$datetime = ymd_hms(dat$datetime) # perhaps redundant, but this conversion is for 'lubridate'. POSIXct might be sufficient.
   dat$datetime = force_tz(time = dat$datetime, tzone = "America/Iqaluit") # change from default time zone to EDT, but don't change time
   return(dat)  
 }
 
 dat2014 = convert.datetime(dat2014)
-
-# dat2014$datetime = with(dat2014, paste(Date, Time)) 
-# dat2014$datetime = as.POSIXct(dat2014$datetime) # Convert DateTime to POSIXct class
-# 
-# dat2014$datetime = force_tz(time = dat2014$datetime, tzone = "America/Iqaluit") # change from default time zone to EDT, but don't change time
-# 
-# length(unique(dat2014$datetime)) # number of "Relative Abundance and Distribution" (RAD) samples in 2014
 
 #====== +++ === === +++ === === +++ === ===
 # Create a sequence of Date/Times, from the start of the season to the end of the season:
@@ -125,7 +117,30 @@ dat2014 = assign.count.ids(dat2014)
 
 # write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
+#====== +++ === === +++ === === +++ === ===
+# Search comments for keywords related to hunting
+#====== +++ === === +++ === === +++ === ===
+hunt.words = c("shot", "gunshot", "gunshots", "shots", "shooting", "hunt", "hunting")
+comments.ii = with(dat2014, which(! Comments %in% c(NA, ""))) # subset of comments that aren't blank
+with(dat2014, Comments[comments.ii]) # check
+comments = as.data.frame(cbind(dat2014$Count.id[comments.ii], dat2014$Comments[comments.ii]))
+comments[,1] = as.integer(comments[,1])
+names(comments) = c("Count.id", "Comments")
+write.csv(x = comments, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+head(comments)
 
+comments.split = strsplit(comments$Comments, " ") # returns a list, with a character vector containing individual words for each comment
+str(comments.split) 
+comments.split[[1]][1] # This is the first 'word' in the first comment
+comments.split = lapply(comments.split, tolower)
+matches = lapply(comments.split, function(x) x %in% hunt.words) # list like comments.split, but each word gets true or false if matches hunt.words
+matches = lapply(matches, function(x) any(x))
+match.ii = which(matches == TRUE); length(match.ii) # return index of matches in comments.split
+
+xx = c("a", "b", "c")
+xx %in% hunt.words
+? '%in%'
+?grep
 #====== +++ === === +++ === === +++ === ===
 # Designate survey.counts for Inclusion:
 #  A complete survey.count is one that includes only stratum counts meeting the sightability criteria across all stratum during that survey.count.  

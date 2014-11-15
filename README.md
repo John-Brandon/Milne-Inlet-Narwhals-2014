@@ -13,4 +13,4 @@ The scripts should be run in this order:
 
 4) Plot 2014 Data
 
-5) Analyze Data (TODO : jbrandon)
+5) Modeling Data (TODO : jbrandon)

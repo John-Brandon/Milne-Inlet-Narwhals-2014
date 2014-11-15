@@ -1,6 +1,6 @@
 ###==============
 # Author: John R. Brandon
-# eMail:  jbrandon greeneridge [or jbrandon@gmail.com]
+# eMail:  jbrandon at greeneridge [or jbrandon at gmail.com]
 # Date :  Fall 2014
 # OS   :  Mac OS 10.9.5 (x86_64-apple-darwin10.8.0 (64-bit))
 # Language : R (ver 3.0.2 (2013-09-25) -- "Frisbee Sailing")
@@ -21,21 +21,28 @@ rm(list=ls()) # clear leftovers from previous workspace
 
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") # Load workspace 
 
-setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data, really for outputting tables (data has already been read)
+# Alternatively, e.g. if data has been updated, can source the script to munge 2014 data
+# setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Code/Milne-Inlet-Narwhals-2014")
+# source("MilneNarwhal-Munging2014Data.R")
 
-# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data, really for outputting tables (data has already been read)
 
 #====== +++ === === +++ === === +++ === ===
 # (1)
 # Table counts of group sizes by sub-stratum
 #====== +++ === === +++ === === +++ === ===
-group.size = table(dat2014$SubStratum, dat2014$GroupSize) # ?table
-group.size = as.data.frame(group.size) # data.frame with group size frequencies in counts (e.g. 1 group of 34 in substratum F1, 0 groups of 33, etc.)
-names(group.size) = c("SubStratum", "GroupSize", "Freq") # make it easier to read
+table.group.size = function(dat){
+  group.size = table(dat$SubStratum, dat$GroupSize) # ?table
+  group.size = as.data.frame(group.size) # data.frame with group size frequencies in counts (e.g. 1 group of 34 in substratum F1, 0 groups of 33, etc.)
+  names(group.size) = c("SubStratum", "GroupSize", "Freq") # make it easier to read
+  
+  group.size$GroupSize = as.numeric.factor(group.size$GroupSize) # convert GroupSize from factor to numeric
+  group.size = group.size[order(group.size$GroupSize),] # sort table on GroupSize
+  return(group.size)
+}
 
-group.size$GroupSize = as.numeric.factor(group.size$GroupSize) # convert GroupSize from factor to numeric
-group.size = group.size[order(group.size$GroupSize),] # sort table on GroupSize
-head(group.size, n = 30) # check
+group.size = table.group.size(dat2014)
+head(group.size, n = 30) # check  
 # write.csv(file = "foo.csv", x = group.size, row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
@@ -55,7 +62,7 @@ head(tot.counts, n = 30) # check
 #====== +++ === === +++ === === +++ === ===
 tot.counts.subs = ddply(tot.counts, "SubStratum", summarise, TotalCount = sum(TotalCount, na.rm = TRUE)) # uses 'plyr' package, could also use function aggregate
 
-write.csv(x = tot.counts.subs, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+# write.csv(x = tot.counts.subs, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # (4)
@@ -70,8 +77,6 @@ head(tot.counts.strat) # check
 # Create a data.frame with TotalCount by SubStratum and Count.id
 #  Note: using .(x, y) in ddply saves having to put quotes around "x" and "y"
 #====== +++ === === +++ === === +++ === ===
-head(dat2014)
-str(dat2014)
 counts.by.sub.stratum = ddply(dat2014, .(Count.id, SubStratum), summarise, 
             datetime = unique(datetime), 
             datetime.rounded.to.half.hr = unique(datetime.nearest.half.hr),                        
@@ -81,6 +86,7 @@ counts.by.sub.stratum = ddply(dat2014, .(Count.id, SubStratum), summarise,
             #datetime.rounded.to.hr = unique(datetime.rounded.to.hr),
             CountType = unique(CountType),
             Vessel.related.count = unique(Vessel.related.count),
+            SeaState = ifelse(length(unique(SeaState)) > 0, paste(unique(SeaState), collapse = "," ), NA)
             # Include.count = unique(Include.count)
                                     ) # returns numbers by sub-strata for each count.id
 
@@ -90,6 +96,8 @@ counts.by.sub.stratum$SubStratum.num = substring(counts.by.sub.stratum$SubStratu
 write.csv(x = counts.by.sub.stratum, file = "counts.by.sub.stratum.csv", row.names = FALSE); system("open counts.by.sub.stratum.csv") # check
 
 with(counts.by.sub.stratum, table(Sightability, Vessel.related.count)) # table sightability vs. vessel.related.scans
+
+with(counts.by.sub.stratum, unique(SeaState))
 
 # DEBUGGING -- Check for duplicate times (as rounded to nearest hour and half hour). Should be no duplicates on half-hours. 
 # foo = ddply(counts.by.sub.stratum, "Count.id", summarise, 
@@ -116,14 +124,14 @@ counts.by.stratum = ddply(counts.by.sub.stratum, .(Count.id, Stratum), summarise
                                     Sightability = ifelse(length(unique(Sightability)) > 0, paste(unique(Sightability), collapse = "," ), NA),
                                     #datetime.rounded.to.hr = unique(datetime.rounded.to.hr),
                                     CountType = unique(CountType),
-                                    Vessel.related.count = unique(Vessel.related.count),
+                                    Vessel.related.count = unique(Vessel.related.count)
                                     # Include.count = unique(Include.count)
 ) # returns numbers by sub-strata for each count.id
 
 write.csv(x = counts.by.stratum, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
-# (7) ** THIS IS THE FUNDAMENTAL DATA MATRIX TO BE FIT DURING MODELING ** (TODO include covariates as columns -- below)
+# (7) ** THIS IS THE FUNDAMENTAL DATA MATRIX TO BE FIT DURING MODELING ** 
 # Filter count-by-stratum to include only "G" or "E" sightability
 #  Note: There may be differences in sightability between substratum in the same survey count 
 #   e.g. A1 = "E", A2 = "G" and A3 = "P". In this example, the Stratum sightability has been compiled as "E,G,P". 
@@ -143,6 +151,17 @@ counts.by.stratum.keepers$value = counts.by.stratum.keepers$TotalCount.without.n
 dat.mat.2014 = cast(counts.by.stratum.keepers, datetime.rounded.to.half.hr + CountType ~ Stratum) # reshape the data.frame into Table D-1 from 2013 report (cast in Wickham's lexicon)
 
 write.csv(x = dat.mat.2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+#====== +++ === === +++ === === +++ === ===
+# Join covariates as columns to the data matrix
+#====== +++ === === +++ === === +++ === ===
+is.data.frame(dat.tides.2014.subset)
+is.data.frame(dat.mat.2014)
+names(dat.mat.2014)[1] = "datetime"
+dat.mat.2014.covariates = join(dat.mat.2014, dat.tides.2014.subset, by = "datetime") # join() is function in 'plyr' package for merging data.frames
+write.csv(x = dat.mat.2014.covariates, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+
 
 #====== +++ === === +++ === === +++ === ===
 # Look at breakdown of sightability during vessel counts
