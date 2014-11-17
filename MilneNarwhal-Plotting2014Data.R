@@ -22,6 +22,7 @@ library(RColorBrewer) # for creating color palettes
 # wrk.space = "MilneNarwhal.2014.RData"
 # wrk.space = paste(base.dir, wrk.space, sep"/")
 # load(wrk.space)
+rm(list = ls())
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") # Load workspace 
 setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data, really for outputting tables (data has already been read)
 
@@ -36,6 +37,13 @@ mytheme = theme_grey() + theme(axis.title.x = element_text(size = rel(1.75), vju
 #  Note: tot.counts.strat are for all sighting conditions AND include periods when large vessels were associated with counts
 #====== +++ === === +++ === === +++ === ===
 ggplot(tot.counts.strat, aes(x = Stratum, y = TotalCount)) + geom_bar(stat = "identity") + ylab("Number of narwhals") + mytheme
+
+#====== +++ === === +++ === === +++ === ===
+# Histograms of the distribution of count sizes (excluding zero counts) by strata 
+#  These include vessel associated counts, but have filtered out poor sightability
+#====== +++ === === +++ === === +++ === ===
+positive.counts.by.stratum = subset(counts.by.stratum.keepers, TotalCount.without.na > 0)
+ggplot(positive.counts.by.stratum, aes(x = TotalCount.without.na)) + geom_histogram() + facet_grid(Stratum ~ .) + xlab("Count") + ylab("Frequency")
 
 #====== +++ === === +++ === === +++ === ===
 # Histogram of group sizes in sub-strata

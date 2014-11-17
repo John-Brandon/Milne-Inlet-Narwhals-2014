@@ -16,6 +16,7 @@
 library(plyr) # Hadley Wickham's "Plier" package for splitting data.frames and applying functions to each subset
 # install.packages("dplyr")
 library(dplyr)
+library(reshape)
 
 rm(list=ls()) # clear leftovers from previous workspace
 
@@ -61,7 +62,7 @@ head(tot.counts, n = 30) # check
 # Summarize abundance by SubStratum (integrating over time)
 #====== +++ === === +++ === === +++ === ===
 tot.counts.subs = ddply(tot.counts, "SubStratum", summarise, TotalCount = sum(TotalCount, na.rm = TRUE)) # uses 'plyr' package, could also use function aggregate
-
+head(tot.counts.subs)
 # write.csv(x = tot.counts.subs, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
@@ -125,10 +126,10 @@ counts.by.stratum = ddply(counts.by.sub.stratum, .(Count.id, Stratum), summarise
                                     #datetime.rounded.to.hr = unique(datetime.rounded.to.hr),
                                     CountType = unique(CountType),
                                     Vessel.related.count = unique(Vessel.related.count)
-                                    # Include.count = unique(Include.count)
+                                    #Include.stratum.count = unique(Include.stratum.count)
 ) # returns numbers by sub-strata for each count.id
 
-write.csv(x = counts.by.stratum, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+# write.csv(x = counts.by.stratum, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # (7) ** THIS IS THE FUNDAMENTAL DATA MATRIX TO BE FIT DURING MODELING ** 
@@ -139,18 +140,19 @@ write.csv(x = counts.by.stratum, file = "foo.csv", row.names = FALSE); system("o
 #   So, in this example, stratum A would be filtered out because one of the sub-stratum was not "G" or "E".
 #====== +++ === === +++ === === +++ === ===
 counts.by.stratum.keepers = subset(counts.by.stratum, Sightability %in% c("G", "E", "G,E", "E,G"))
+head(counts.by.stratum.keepers)
 str(counts.by.stratum.keepers)
 length(with(counts.by.stratum.keepers, unique(Count.id))) # check
 
 calc.ssq = function(x, y) sum((x-y)^2, na.rm = TRUE)
 with(counts.by.stratum.keepers, calc.ssq(TotalCount.with.na, TotalCount.without.na)) # check
 
-write.csv(x = counts.by.stratum.keepers, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+write.csv(x = counts.by.stratum.keepers, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
 
 counts.by.stratum.keepers$value = counts.by.stratum.keepers$TotalCount.without.na
 dat.mat.2014 = cast(counts.by.stratum.keepers, datetime.rounded.to.half.hr + CountType ~ Stratum) # reshape the data.frame into Table D-1 from 2013 report (cast in Wickham's lexicon)
 
-write.csv(x = dat.mat.2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+write.csv(x = dat.mat.2014, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Join covariates as columns to the data matrix
@@ -160,7 +162,6 @@ is.data.frame(dat.mat.2014)
 names(dat.mat.2014)[1] = "datetime"
 dat.mat.2014.covariates = join(dat.mat.2014, dat.tides.2014.subset, by = "datetime") # join() is function in 'plyr' package for merging data.frames
 write.csv(x = dat.mat.2014.covariates, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
 
 
 #====== +++ === === +++ === === +++ === ===

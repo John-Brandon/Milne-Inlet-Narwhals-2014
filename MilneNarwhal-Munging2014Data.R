@@ -118,30 +118,6 @@ dat2014 = assign.count.ids(dat2014)
 # write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
-# Search comments for keywords related to hunting
-#====== +++ === === +++ === === +++ === ===
-hunt.words = c("shot", "gunshot", "gunshots", "shots", "shooting", "hunt", "hunting")
-comments.ii = with(dat2014, which(! Comments %in% c(NA, ""))) # subset of comments that aren't blank
-with(dat2014, Comments[comments.ii]) # check
-comments = as.data.frame(cbind(dat2014$Count.id[comments.ii], dat2014$Comments[comments.ii]))
-comments[,1] = as.integer(comments[,1])
-names(comments) = c("Count.id", "Comments")
-write.csv(x = comments, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-head(comments)
-
-comments.split = strsplit(comments$Comments, " ") # returns a list, with a character vector containing individual words for each comment
-str(comments.split) 
-comments.split[[1]][1] # This is the first 'word' in the first comment
-comments.split = lapply(comments.split, tolower)
-matches = lapply(comments.split, function(x) x %in% hunt.words) # list like comments.split, but each word gets true or false if matches hunt.words
-matches = lapply(matches, function(x) any(x))
-match.ii = which(matches == TRUE); length(match.ii) # return index of matches in comments.split
-
-xx = c("a", "b", "c")
-xx %in% hunt.words
-? '%in%'
-?grep
-#====== +++ === === +++ === === +++ === ===
 # Designate survey.counts for Inclusion:
 #  A complete survey.count is one that includes only stratum counts meeting the sightability criteria across all stratum during that survey.count.  
 #  i.e. counts across each substratum were conducted during good to excellent sightability 
@@ -150,12 +126,11 @@ xx %in% hunt.words
 #    then those were entered as "x" (read into R as "NA"), so those counts with any "NA" or "P" will be excluded.
 #====== +++ === === +++ === === +++ === ===
 dat2014$include.group = rep(FALSE, nrow(dat2014))
-if(dat2014$Sightability %in% c("G", "E")) dat2014$include.group = TRUE
+include.ii = which(dat2014$Sightability %in% c("G", "E"))
+dat2014$include.group[include.ii] = TRUE
+unique(dat2014$include.group) # check
 
-
-unique(dat2014$Sightability)
-length(which(is.na(dat2014$Sightability)))
-length(which(dat2014$Sightability == "P")) 
+# write.csv(x = dat2014, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
 
 unique(dat2014$Count.id[which(is.na(dat2014$Sightability))]) # check to see which count.id's had NA's for no effort (due to fog, etc.)
 unique(dat2014$Count.id[which(dat2014$Sightability == "P")]) # check to see which count.id's had P's for Poor sightability conditions
@@ -164,29 +139,34 @@ CountInclude = function(sightability){
   # Does this sub-stratum count meet the criteria of having all sub-stratum observed during Good or Excellent conditions?
   # 'sightability' here is a vector containing a code ("P", "G", "E", or NA) for each sub-stratum in a given count 
   # 'include.count' is returned as TRUE or FALSE
-  unique.sight.codes = NULL; include.count = FALSE
-  unique.sight.codes = unique(sightability)
-  if (unique(sightability) %in% c("G", "E")) include.count = TRUE
+  vector.boolean.include = NULL; include.count = TRUE
+  vector.boolean.include = sightability %in% c("P", NA)
+  if (any(vector.boolean.include == TRUE )) include.count = FALSE
   return(include.count)
 }
 
-names(dat2014)
+# counts.to.include.sub = ddply(dat2014, .(Count.id, SubStratum), summarise, 
+#                           Include.count = CountInclude(Sightability),
+#                           datetime = unique(datetime)) 
 
-# counts.to.include = ddply(dat2014, .(Count.id, SubStratum), summarise, Include.count = CountInclude(Sightability)) 
-counts.to.include = ddply(dat2014, .(Count.id, Stratum), summarise, Include.count = CountInclude(Sightability)) 
-head(counts.to.include)
-nrow(counts.to.include)
+counts.to.include.stratum = ddply(dat2014, .(Count.id, Stratum), summarise, Include.stratum.count = CountInclude(Sightability)) #datetime = unique(datetime)
+head(counts.to.include.stratum) # check
+nrow(dat2014); nrow(counts.to.include.stratum)
+
+write.csv(x = counts.to.include.stratum, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
 
 # dat2014 = merge(x = dat2014, y = counts.to.include, by.x = "Count.id", by.y = "Count.id") # expand from concise counts.to.include to full length column in data.frame 
 
 # write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
-foo = merge(x = dat2014, y = counts.to.include, by.x = "Count.id", by.y = "Count.id") # expand from concise counts.to.include to full length column in data.frame 
-write.csv(x = foo, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+dat2014 = join(x = dat2014, y = counts.to.include.stratum, by = c("Count.id", "Stratum")) # expand from concise counts.to.include to full length column in data.frame 
+
+# write.csv(x = dat2014, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Rounding 'datetime' (class POSIXct) to nearest hour
 #  Do this with just the hour (no date) and with datetime
+#   TODO: Make this into a generic function that can be called on non-2014 data -- possibly add functionality to 'convert.datetime()' function
 #====== +++ === === +++ === === +++ === ===
 rounded.hour = dat2014$datetime # create a new column that will contain datetime rounded to the nearest hour 
 rounded.hour = format(round(rounded.hour, units="hours"), format="%H:%M") # seems to work
@@ -197,19 +177,6 @@ datetime.rounded.to.hr = round_date(datetime.rounded.to.hr, unit = "hour") # rou
 dat2014$datetime.rounded.to.hr = datetime.rounded.to.hr # append the rounded hours to data.frame
 
 # write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-#====== +++ === === +++ === === +++ === ===
-# After rounding the start times for counts to the nearest hour, there are instances where
-#  multiple counts are assigned to the same hour. This is undesirable, because we want
-#  the counts to be in an incremental sequence. So, we need to find those instances and adjust the hours 
-#  to achieve the incremental sequence. 
-#====== +++ === === +++ === === +++ === ===
-# foo = dat2014$datetime.rounded.to.hr
-# length(foo)
-# 
-# foo.dupes = duplicated(foo)
-# which(foo.dupes == TRUE)
-# rm(foo); rm(foo.dupes)
 
 #====== +++ === === +++ === === +++ === ===
 # Rounding 'datetime' (class POSIXct) to nearest half hour 
@@ -255,3 +222,31 @@ dat2014$GroupSizeLevel[which(dat2014$GroupSize > 0)] = "PositiveCount"
 # Save workspace image
 #====== +++ === === +++ === === +++ === ===
 save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData")
+
+#====== +++ === === +++ === === +++ === ===
+# %%% SCRATCH CODE BELOW %%%
+#====== +++ === === +++ === === +++ === ===
+#====== +++ === === +++ === === +++ === ===
+# Search comments for keywords related to hunting
+#====== +++ === === +++ === === +++ === ===
+# hunt.words = c("shot", "gunshot", "gunshots", "shots", "shooting", "hunt", "hunting")
+# comments.ii = with(dat2014, which(! Comments %in% c(NA, ""))) # subset of comments that aren't blank
+# with(dat2014, Comments[comments.ii]) # check
+# comments = as.data.frame(cbind(dat2014$Count.id[comments.ii], dat2014$Comments[comments.ii]))
+# comments[,1] = as.integer(comments[,1]) # I don't like "hard-coding" of index (= 1) here TODO: jbrandon
+# names(comments) = c("Count.id", "Comments")
+# write.csv(x = comments, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+# head(comments)
+# 
+# comments.split = strsplit(comments$Comments, " ") # returns a list, with a character vector containing individual words for each comment
+# str(comments.split) 
+# comments.split[[1]][1] # This is the first 'word' in the first comment
+# comments.split = lapply(comments.split, tolower) # coerce comments to lower case to ease matching, i.e. %in%
+# matches = lapply(comments.split, function(x) x %in% hunt.words) # list like comments.split, but each word gets true or false if matches hunt.words
+# matches = lapply(matches, function(x) any(x))
+# match.ii = which(matches == TRUE); length(match.ii) # return index of matches in comments.split
+# 
+# xx = c("a", "b", "c")
+# xx %in% hunt.words
+# ? '%in%'
+# ?grep
