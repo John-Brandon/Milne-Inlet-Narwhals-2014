@@ -13,8 +13,5 @@ The scripts should be run in this order:
 
 4) Plot 2014 Data
 
-<<<<<<< HEAD
 5) Modeling Data (TODO : jbrandon)
-=======
-5) Modeling -- Negative Binomial GLM with stratum level random effects (TODO : jbrandon)
->>>>>>> be8bfc8f9c60dcfe60e4effcef6dd0482d6a6cbb
+
