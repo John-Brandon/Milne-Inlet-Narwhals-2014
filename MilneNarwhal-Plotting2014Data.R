@@ -48,16 +48,20 @@ ggplot(positive.counts.by.stratum, aes(x = TotalCount.without.na)) + geom_histog
 #====== +++ === === +++ === === +++ === ===
 # Histogram of group sizes in sub-strata
 #====== +++ === === +++ === === +++ === ===
-g = ggplot(data = dat2014, aes(x = GroupSize)) + geom_histogram(fill = "gray40", colour = "black", binwidth = 1, na.rm = TRUE)
+g = ggplot(data = dat2014, aes(x = GroupSize)) 
+g = g + geom_histogram(fill = "gray40", colour = "black", binwidth = 1, na.rm = TRUE, origin = -0.5)
 g = g + facet_grid(Stratum ~ SubStratum.num)
-g + xlim(c(0, 7)) 
+g + xlim(c(-0.5, 6.5)) + ylab("Frequency")
 
 #====== +++ === === +++ === === +++ === ===
 # Histogram of group sizes in Strata
+#  NOTE: use of "origin" in geom_histogram()
 #====== +++ === === +++ === === +++ === ===
-g = ggplot(data = dat2014, aes(x = GroupSize)) + geom_histogram(fill = "gray40", colour = "black", binwidth = 1, na.rm = TRUE)
-g = g + facet_grid(Stratum ~ .)
-g + xlim(c(0, 5)) 
+g = ggplot(data = dat2014, aes(x = GroupSize))
+g = g + geom_histogram(fill = "gray40", colour = "black", binwidth = 1, na.rm = TRUE, origin = -0.50) # NOTE: origin
+g = g + facet_grid(Stratum ~ .) 
+# g = g + scale_x_discrete(breaks = 0:7)
+g + xlim(c(-0.5, 6.5)) + ylab("Frequency")
 
 #====== +++ === === +++ === === +++ === ===
 # Histograms of (1) total and (2) mean counts by hour, over all strata

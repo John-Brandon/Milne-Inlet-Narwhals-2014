@@ -11,7 +11,7 @@
 #  1) Your main directory will differ. See 'base.dir' variable below to edit that path to match your system
 #  2) POSIXct is a class for representing calendar dates and times (these must be input in a strictly decreasing unambigous order, i.e. "YYYY-MM-DD HH:MM:SS")
 #  3) These data are also known as "Relative Abundance and Distribution" (RAD) data 
-#
+#  4) Manually added a column in spreadsheet with LargeVess.Trans.ID (makes it easier to pull out start and stop times for large vessel transits)
 #====== +++ === === +++ === === +++ === ===
 library(plyr) # Hadley Wickham's "Plier" package for common tasks (e.g. summarizing) with data.frames
 # library(dplyr) # I think this might be an updated version of the plyr package?
@@ -153,7 +153,7 @@ counts.to.include.stratum = ddply(dat2014, .(Count.id, Stratum), summarise, Incl
 head(counts.to.include.stratum) # check
 nrow(dat2014); nrow(counts.to.include.stratum)
 
-write.csv(x = counts.to.include.stratum, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
+# write.csv(x = counts.to.include.stratum, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
 
 # dat2014 = merge(x = dat2014, y = counts.to.include, by.x = "Count.id", by.y = "Count.id") # expand from concise counts.to.include to full length column in data.frame 
 
@@ -184,6 +184,28 @@ dat2014$datetime.rounded.to.hr = datetime.rounded.to.hr # append the rounded hou
 #====== +++ === === +++ === === +++ === ===
 dat2014$datetime.nearest.half.hr = dat2014$datetime
 minute(dat2014$datetime.nearest.half.hr) = round(minute(dat2014$datetime.nearest.half.hr)/30)*30 # round to nearest five minute
+
+#====== +++ === === +++ === === +++ === ===
+# Extract start and end times for each vessel count and create a new data.frame with those
+#  New data.frame will be used for plotting gray bars during vessel passage on time series plot of counts 
+#====== +++ === === +++ === === +++ === ===
+names(dat2014)
+unique(dat2014$CountType)
+unique(dat2014$LargeVess.Trans.ID)
+large.vess.count = length(which(!is.na(unique(dat2014$LargeVess.Trans.ID)))) # four large vess transits during counts in 2014
+
+large.vess.transit = NULL; start.time = as.POSIXct(NA, tz = ""); stop.time = as.POSIXct(NA,tz = tz(dat2014$datetime))
+for(ii in 1:large.vess.count){
+  large.vess.ii = which(dat2014$LargeVess.Trans.ID == ii)
+  large.vess.transit[ii] = ii
+  start.time[ii] = min(dat2014$datetime.nearest.half.hr[large.vess.ii]) # large.vess.start.stop
+  stop.time[ii] = max(dat2014$datetime.nearest.half.hr[large.vess.ii]) 
+}
+library(lubridate)
+start.time = with_tz(start.time, tzone = tz(dat2014$datetime)) # force time zone to equal survey data tz
+stop.time = with_tz(stop.time, tzone = tz(dat2014$datetime))
+
+large.vess.times = data.frame(large.vess.transit, start.time, stop.time)
 
 #====== +++ === === +++ === === +++ === ===
 # Rounding 'datetime' (class POSIXct) to nearest five minute (to align with tide data, which are every 5 minutes)
@@ -226,13 +248,17 @@ save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneN
 #====== +++ === === +++ === === +++ === ===
 # %%% SCRATCH CODE BELOW %%%
 #====== +++ === === +++ === === +++ === ===
+
 #====== +++ === === +++ === === +++ === ===
 # Search comments for keywords related to hunting
 #====== +++ === === +++ === === +++ === ===
 # hunt.words = c("shot", "gunshot", "gunshots", "shots", "shooting", "hunt", "hunting")
-# comments.ii = with(dat2014, which(! Comments %in% c(NA, ""))) # subset of comments that aren't blank
-# with(dat2014, Comments[comments.ii]) # check
-# comments = as.data.frame(cbind(dat2014$Count.id[comments.ii], dat2014$Comments[comments.ii]))
+comments.ii = with(dat2014, which(! Comments %in% c(NA, ""))) # subset of comments that aren't blank
+comments = dat2014[comments.ii, ]
+comments = with(comments, data.frame(Count.id, Date, Time, Comments))
+write.csv(x = comments, file = "foo3.csv", row.names = FALSE); system("open foo3.csv")
+str(comments)
+View(comments)
 # comments[,1] = as.integer(comments[,1]) # I don't like "hard-coding" of index (= 1) here TODO: jbrandon
 # names(comments) = c("Count.id", "Comments")
 # write.csv(x = comments, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
