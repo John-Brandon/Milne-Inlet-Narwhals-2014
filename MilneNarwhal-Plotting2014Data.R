@@ -71,10 +71,15 @@ g + xlim(c(-0.5, 6.5)) + ylab("Frequency")
 write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 without.vessels.dat2014 = subset(dat2014, (CountType != "PRE" & CountType != "C" & CountType != "POST"))
+
 fig.numbers.by.hour = ddply(without.vessels.dat2014, "rounded.hour", summarise, 
                             Numbers = sum(GroupSize, na.rm = TRUE), 
                             Counts = length(unique(Count.id))
                             ) 
+
+names(without.vessels.dat2014)
+sum(fig.numbers.by.hour$Numbers)
+sum(fig.numbers.by.hour$Counts)
 
 fig.numbers.by.hour$Mean.number = fig.numbers.by.hour$Numbers / fig.numbers.by.hour$Counts
 
@@ -85,7 +90,7 @@ every.four.hrs = c("00:00", "04:00", "08:00", "12:00", "16:00", "20:00")
 #ggplot(fig.numbers.by.hour, aes(x = rounded.hour, y = Counts)) + geom_bar(stat = "identity") # total counts
 
 # total counts
-ggplot(fig.numbers.by.hour, aes(x = rounded.hour, y = Counts)) + geom_bar(stat = "identity") + mytheme + 
+ggplot(fig.numbers.by.hour, aes(x = rounded.hour, y = Numbers)) + geom_bar(stat = "identity") + mytheme + 
   ylab("Number of narwhals") + xlab("Time of Day") + scale_x_discrete(breaks=every.four.hrs)
 
 # Mean number of narwhals per count  
@@ -97,15 +102,17 @@ ggplot(fig.numbers.by.hour, aes(x = rounded.hour, y = Mean.number)) +
 #====== +++ === === +++ === === +++ === ===
 # Try boxplot of distribution of numbers by hour
 #====== +++ === === +++ === === +++ === ===
-numbers.dist.by.hour = ddply(without.vessels.dat2014, "Count.id", summarise, 
-                            Numbers = sum(GroupSize, na.rm = TRUE), 
-                            Hour = unique(datetime.rounded.to.hr)
-) 
-
-write.csv(x = numbers.dist.by.hour, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-ggplot(numbers.dist.by.hour, aes(x = as.factor(Hour), y = Numbers)) + geom_boxplot() + geom_jitter(alpha=0.75)# 
-ggplot(numbers.dist.by.hour, aes(x = as.factor(Hour), y = Numbers)) + geom_point(alpha=0.75)# 
+# numbers.dist.by.hour = ddply(without.vessels.dat2014, "Count.id", summarise, 
+#                             Numbers = sum(GroupSize, na.rm = TRUE), 
+#                             Hour = unique(rounded.hour)
+# ) 
+# 
+# write.csv(x = numbers.dist.by.hour, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+# 
+# ggplot(numbers.dist.by.hour, aes(x = as.factor(Hour), y = Numbers)) + geom_boxplot() + scale_x_discrete(breaks=every.four.hrs) + ylim(c(0,200))
+# 
+# ggplot(numbers.dist.by.hour, aes(x = as.factor(Hour), y = Numbers)) + geom_boxplot() + geom_jitter(alpha=0.75)# 
+# ggplot(numbers.dist.by.hour, aes(x = as.factor(Hour), y = Numbers)) + geom_point(alpha=0.75)# 
 
 #====== +++ === === +++ === === +++ === ===
 # Try heatmap showing numbers in each strata for each count
@@ -180,33 +187,42 @@ heat.map.strata
 #====== +++ === === +++ === === +++ === ===
 # Have a look at faceted scatterplots showing numbers in sub-stratum and tide.delta
 #====== +++ === === +++ === === +++ === ===
+# The palette with black:
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+man.palette = c("Red", "Orange", "Green", "Blue", "Black")
 # start working with 'included' data here
 names(dat2014.include)
 
 # This shows group size as a function of tidal flow (delta)
-qplot(x = delta, y = GroupSize, data = dat2014.include, facets = Stratum ~ SubStratum.num) # first draft with qplot
+#qplot(x = delta, y = GroupSize, data = dat2014.include, facets = Stratum ~ SubStratum.num) # first draft with qplot
+qplot(x = delta, y = GroupSize, data = dat2014, facets = Stratum ~ SubStratum.num) # first draft with qplot
 
-head(dat2014.include)
-g = ggplot(dat2014.include, aes(delta, GroupSize, colour = GroupSizeLevel)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
-g = g + geom_point() + facet_grid(Stratum ~ SubStratum.num) # geom_smooth(method = "lm")
-g + scale_y_continuous(limits = c(0, 15))
+# head(dat2014.include)
+# g1 = ggplot(dat2014.include, aes(delta, GroupSize, colour = GroupSizeLevel)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
+# g1 = g1 + geom_point() + facet_grid(Stratum ~ SubStratum.num) # geom_smooth(method = "lm")
+# g1 + scale_y_continuous(limits = c(0, 15)) + xlab("Tidal Rate") + ylab("Group Size")
+# 
+# g2 = ggplot(dat2014.include, aes(delta, GroupSize, shape = GroupSizeLevel)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
+# g2 = g2 + geom_point() + facet_grid(Stratum ~ SubStratum.num) # geom_smooth(method = "lm")
+# g2 + scale_y_continuous(limits = c(0, 15)) + scale_shape_manual(values = c(19,4))
+# 
+# g2 = ggplot(dat2014, aes(x = delta, y = GroupSize, colour = Vessel.related.count)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
+# g2 + geom_point() + facet_grid(Stratum ~ SubStratum.num) 
+# 
+# # Plot tide elevation on x-axis instead of 'delta'
+# gElev = ggplot(dat2014.include, aes(x = Elevation, y = GroupSize)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
+# gElev + geom_point() + facet_grid(Stratum ~ SubStratum.num) 
 
-g = ggplot(dat2014.include, aes(delta, GroupSize, shape = GroupSizeLevel)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
-g = g + geom_point() + facet_grid(Stratum ~ SubStratum.num) # geom_smooth(method = "lm")
-g + scale_y_continuous(limits = c(0, 15)) + scale_shape_manual(values = c(19,4))
+library(scales)
+g3 = ggplot(subset(dat2014.include, subset = !is.na(Direction)), aes(x = delta, y = GroupSize, colour = Direction)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
+g3 = g3 + geom_point() + facet_grid(Stratum ~ SubStratum.num) + scale_colour_manual(values=man.palette) #scale_fill_brewer(palette = "Set1") # scale_colour_brewer(palette = "Set3")
+g3 = g3 + xlab("Tidal Rate") + ylab("Group Size") + scale_y_continuous(limits = c(0, 15)) + geom_jitter() 
+g3 
 
-
-g = ggplot(dat2014.include, aes(x = delta, y = GroupSize, colour = Vessel.related.count)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
-g + geom_point() + facet_grid(Stratum ~ SubStratum.num) 
-
-# Plot tide elevation on x-axis instead of 'delta'
-gElev = ggplot(dat2014.include, aes(x = Elevation, y = GroupSize)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
-gElev + geom_point() + facet_grid(Stratum ~ SubStratum.num) 
-
-g = ggplot(dat2014.include, aes(x = delta, y = GroupSize, colour = Direction)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
-g + geom_point() + facet_grid(Stratum ~ SubStratum.num) + scale_colour_brewer(palette = "Set1")
-
+?scale_alpha_manual
+unique(dat2014.include$GroupSize)
 unique(dat2014.include$Direction)
+which(dat2014.include$Direction == "K") # Not sure we want to include these few points?
 unique(dat2014.include$Vessel.related.count)
 
 #====== +++ === === +++ === === +++ === ===

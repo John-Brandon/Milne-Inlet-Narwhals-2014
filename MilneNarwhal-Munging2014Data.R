@@ -238,13 +238,14 @@ dat2014$GroupSizeLevel[which(dat2014$GroupSize > 0)] = "PositiveCount"
 #====== +++ === === +++ === === +++ === ===
 # Create another data.frame, with a subset of the counts which meet sightability criteria
 #====== +++ === === +++ === === +++ === ===
-# dat2014.include = subset(dat2014, Include.count == TRUE)
+dat2014.include = subset(dat2014, include.group == TRUE)
 
 #====== +++ === === +++ === === +++ === ===
 # Save workspace image
 #====== +++ === === +++ === === +++ === ===
 save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData")
 
+load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData")
 #====== +++ === === +++ === === +++ === ===
 # %%% SCRATCH CODE BELOW %%%
 #====== +++ === === +++ === === +++ === ===

@@ -31,6 +31,7 @@ setwd(base.dir) # Set working directory for data
 # Read data file 
 scandat2014 = read.csv(file = scan.dfile, header = TRUE, as.is = TRUE, na.strings = c("NA", "x", "X")) 
 str(scandat2014) # check structure of data.frame
+with(scandat2014, unique(Formation))
 # View(scandat2014)
 # names(scandat2014)
 
@@ -44,63 +45,63 @@ str(scandat2014) # check structure of data.frame
 #   
 # }
 
+# drop rows that do not have a recorded number for GroupSize
+scandat2014 = subset(scandat2014, subset = !is.na(GroupSize))
+
 scandat2014 = mutate(scandat2014, datetimeStart = paste(Date, BlockStartTime)) # work on times to get unique datetime
 scandat2014 = mutate(scandat2014, datetimeStart = as.POSIXct(datetimeStart)) # convert from string to date time class
 scandat2014 = mutate(scandat2014, datetimeStart = force_tz(datetimeStart, tzone = "America/Iqaluit")) # change to local timezone (doesn't change time)
-unique(scandat2014$datetimeStart)
+
+scandat2014$GroupSpread = revalue(scandat2014$GroupSpread, 
+                              c("L" = "Loose", 
+                                "T" = "Tight")) # helps with plotting labels
+
+scandat2014$Formation = revalue(scandat2014$Formation, 
+                            c("N" = "", 
+                              "C" = "Circular",
+                              "P" = "Parallel",
+                              "L" = "Linear")) # helps with plotting labels
+
+scandat2014$Speed = revalue(scandat2014$Speed, 
+                        c("S" = "Slow", 
+                          "M" = "Medium",
+                          "F" = "Fast")) # helps with plotting labels
+
+scandat2014$DistanceAway = revalue(scandat2014$DistanceAway, 
+                               c("I" = "Inner", 
+                                 "O" = "Outer")) # helps with plotting labels
 
 scandat2014$TravelDirection = revalue(scandat2014$TravelDirection, c("N" = "North", "S" = "South")) # helps with plotting labels
-scandat2014$TravelDirection = as.factor(scandat2014$TravelDirection)
 
-filter.scan.dat = function(dat = scandat2014, TravDir = "North", return.columns = c("")){
-  scandat = subset(scandat2014, TravelDirection %in% TravDir, select = select.columns)
-  return(scandat)
-}
+scandat2014$TravelDirection = as.factor(scandat2014$TravelDirection) # TODO : use 'lapply' (or 'apply') to make all relevant columns as.factor()
+scandat2014$Formation = as.factor(scandat2014$Formation) 
+scandat2014$TravelDirection = as.factor(scandat2014$TravelDirection)
 
 # For groups where group composition is known (i.e. GroupSize = sum(YesTusk_A,YesTusk_J, NoTusk_A, NoTusk_J, NoTusk_C)
 scandat2014 = mutate(scandat2014, sum.known.stages = YesTusk_A + YesTusk_J + NoTusk_A + NoTusk_J + NoTusk_C) # adds a new column, sum.known.stages
 
 ii.known = with(scandat2014, which(GroupSize == sum.known.stages & (!is.na(sum.known.stages)))) # index of groups with known compositions
+length(ii.known)
 
 scandat2014$GroupCompKnown = rep(FALSE, nrow(scandat2014))
 scandat2014$GroupCompKnown[ii.known] = TRUE
 
+# filter.scan.dat = function(dat = scandat2014, TravDir = "North", return.columns = c("")){
+#   scandat = subset(scandat2014, TravelDirection %in% TravDir, select = select.columns)
+#   return(scandat)
+# }
+
 select.columns = c("datetimeStart","GroupSize", "TravelDirection", "GroupSpread", "Formation", "Speed", "DistanceAway", 
                    "GroupCompKnown", "YesTusk_A", "YesTusk_J", "NoTusk_A", "NoTusk_J", "NoTusk_C") 
 select.TravelDir = c("North", "South")
-scandat = filter.scan.dat(dat = scandat2014, TravDir = select.TravelDir, return.columns = select.columns)
-scandat.N <- filter.scan.dat(dat = scandat2014, TravDir = "North", return.columns = select.columns)
-scandat.S <- filter.scan.dat(dat = scandat2014, TravDir = "South", return.columns = select.columns)
-nrow(scandat.N); nrow(scandat.S) # check
 
-scandat$GroupSpread = revalue(scandat$GroupSpread, 
-                               c("L" = "Loose", 
-                                 "T" = "Tight")) # helps with plotting labels
+scandat = subset(x = scandat2014, select = select.columns) # scandat includes all travel direction
 
-scandat$Formation = revalue(scandat$Formation, 
-                              c("N" = "Non-directional Line", 
-                                "C" = "Circular",
-                                "P" = "Parallel",
-                                "L" = "Linear")) # helps with plotting labels
-
-scandat$Speed = revalue(scandat$Speed, 
-                            c("S" = "Slow", 
-                              "M" = "Medium",
-                              "F" = "Fast")) # helps with plotting labels
-
-scandat$DistanceAway = revalue(scandat$DistanceAway, 
-                        c("I" = "Inner", 
-                          "O" = "Outer")) # helps with plotting labels
-
-scandat$TravelDirection = as.factor(scandat$TravelDirection) # TODO : use 'lapply' (or 'apply') to make all relevant columns as.factor()
-scandat$Formation = as.factor(scandat$Formation) 
-
+scandat.N = subset(x = scandat2014, TravelDirection == "North", select = select.columns)
+scandat.S = subset(x = scandat2014, TravelDirection == "South", select = select.columns)
 scandat.NS = subset(scandat, TravelDirection %in% c("North", "South")) # just look at those groups headed either North or South
 
 scandat.NS = droplevels(scandat.NS) # Drops 'empty' factor levels after subset call above
-levels(scandat.NS$Formation)
-scandat.NS$Formation = droplevels(scandat.NS$Formation)
-?droplevels
 levels(scandat.NS$TravelDirection)
 
 #====== +++ === === +++ === === +++ === ===
@@ -110,7 +111,7 @@ levels(scandat.NS$TravelDirection)
 #====== +++ === === +++ === === +++ === ===
 names(scandat.NS)
 with(scandat.NS, table(TravelDirection))
-
+with(scandat, table(TravelDirection)) # all directions, notice that some directions might be recorded as ""
 # TravelDirection
 # North South 
 # 46   186 
@@ -136,7 +137,7 @@ qcc.overdispersion.test(scandat.N$GroupSize) # test for overdispersion (Null hyp
 qcc.overdispersion.test(scandat.S$GroupSize) # p << 0.05
 
 wilcox.test(scandat.N$GroupSize, scandat.S$GroupSize)
-
+?wilcox.test
 # rtpois <- function(N, lambda)
 #   qpois(runif(N, dpois(0, lambda), 1), lambda)
 # 
@@ -205,8 +206,7 @@ table.formation = table(formation.spread.dat$Formation, formation.spread.dat$Tra
 table.formation = table.formation[-1,]
 
 chisq.test(table.formation)
-chisq.test(table.formation[c(1,3:4),]) # ignore linear, because n < 5 for north and for south
-
+chisq.test(table.formation[c(1,3),]) # ignore linear, because n < 5 for north and for south
 
 # Use barplots to summarize Formation
 gg5 = ggplot(formation.spread.dat, aes(x = Formation))
@@ -237,9 +237,9 @@ gg7 + geom_bar() + xlab("Group Distance Away") + ylab("Count") + facet_grid(Trav
 # How many groups have known composition?
 #====== +++ === === +++ === === +++ === ===
 # For groups where group composition is known (i.e. GroupSize = sum(YesTusk_A,YesTusk_J, NoTusk_A, NoTusk_J, NoTusk_C)
-dat.GroupCompKnown = subset(scandat, GroupCompKnown == TRUE) # just groups with known composition
-table(scandat$GroupCompKnown) 
-addmargins(table(scandat$GroupCompKnown))
+dat.GroupCompKnown = subset(scandat2014, GroupCompKnown == TRUE) # just groups with known composition
+table(scandat2014$GroupCompKnown) 
+addmargins(table(scandat2014$GroupCompKnown))
 
 # For groups where group composition is known (i.e. GroupSize = sum(YesTusk_A,YesTusk_J, NoTusk_A, NoTusk_J, NoTusk_C)
 #====== +++ === === +++ === === +++ === ===
@@ -352,7 +352,7 @@ table.group.comp = arrange(table.group.comp, desc(TotalGroups))
 table.group.comp
 
 head(dat.GroupCompKnown)
-gsub(',,', '', dat.GroupCompKnown$GroupComp[1]) # substitutes first argument with second argument, in string in third argument
+gsub(',,', '', dat.GroupCompKnown$GroupComp[1]) # substitutes first argument with second argument, in the string in third argument
 
 # For groups where group composition is known (i.e. GroupSize = sum(YesTusk_A,YesTusk_J, NoTusk_A, NoTusk_J, NoTusk_C)
 #====== +++ === === +++ === === +++ === ===
@@ -362,8 +362,6 @@ gsub(',,', '', dat.GroupCompKnown$GroupComp[1]) # substitutes first argument wit
 #====== +++ === === +++ === === +++ === ===
 View(dat.GroupCompKnown)
 with(dat.GroupCompKnown, table(GroupComp, Formation))
-
-
 
 # For groups where group composition is known (i.e. GroupSize = sum(YesTusk_A,YesTusk_J, NoTusk_A, NoTusk_J, NoTusk_C)
 #====== +++ === === +++ === === +++ === ===
