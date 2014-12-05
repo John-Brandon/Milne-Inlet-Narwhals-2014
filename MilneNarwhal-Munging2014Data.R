@@ -37,13 +37,18 @@ as.numeric.factor <- function(x) {as.numeric(levels(x))[x]}
 #====== +++ === === +++ === === +++ === ===
 # Clean up some typos
 #====== +++ === === +++ === === +++ === ===
-substratum.typos.ii = which(dat2014$SubStratum == "13") 
-dat2014$SubStratum[substratum.typos.ii] = "I3"
+clean.typos = function(dat){
+  substratum.typos.ii = which(dat$SubStratum == "13") 
+  dat$SubStratum[substratum.typos.ii] = "I3"
+  
+  group.size.typos.ii = which(dat$GroupSize == "I")
+  dat$GroupSize[group.size.typos.ii] = 1
+  
+  dat$GroupSize = as.numeric(dat$GroupSize) # coerce if not already numeric (was read as character initially)  
+  return(dat)
+}
 
-group.size.typos.ii = which(dat2014$GroupSize == "I")
-dat2014$GroupSize[group.size.typos.ii] = 1
-
-dat2014$GroupSize = as.numeric(dat2014$GroupSize) # coerce if not already numeric (was read as character initially)
+dat2014 = clean.typos(dat2014)
 
 #====== +++ === === +++ === === +++ === ===
 # Extract Stratum ("A", "B", "C", etc) and Substratum Number ("1", "2", "3", etc) from Substratum (e.g. A1, A2, A3, B1, B2, etc.)
@@ -58,26 +63,35 @@ dat2014$SubStratum.num = substring(dat2014$SubStratum, first = 2, last = 2) # Cr
 #====== +++ === === +++ === === +++ === ===
 convert.datetime = function(dat){
 # dat is a data.frame
-  dat$datetime = with(dat, paste(Date, Time)) 
-  dat$datetime = as.POSIXct(dat$datetime) # Convert DateTime to POSIXct class
+  if(! "datetime" %in% names(dat)){ # create a concatinated datetime column if it does not already exist
+    dat$datetime = with(dat, paste(Date, Time)) 
+    dat$datetime = as.POSIXct(dat$datetime) # Convert DateTime to POSIXct class
+  } 
   dat$datetime = ymd_hms(dat$datetime) # perhaps redundant, but this conversion is for 'lubridate'. POSIXct might be sufficient.
   dat$datetime = force_tz(time = dat$datetime, tzone = "America/Iqaluit") # change from default time zone to EDT, but don't change time
   return(dat)  
 }
 
 dat2014 = convert.datetime(dat2014)
+str(dat2014)
 
 #====== +++ === === +++ === === +++ === ===
 # Create a sequence of Date/Times, from the start of the season to the end of the season:
-#  Incrementing (1) every hour, and (2) every half hour
+#  - Incrementing (1) every hour, and (2) every half hour
+#  - This is used for plotting the x-axis range in plot of counts and large vessel presence 
 #====== +++ === === +++ === === +++ === ===
-start.season = unique(dat2014$datetime)[1]
-increment.timestamp = 60
-end.season = unique(dat2014$datetime)[length(unique(dat2014$datetime))]
-hour(end.season) = 23 # take it to the end of the last day
-hourly.timestamps = seq(from=start.season, by=increment.timestamp*60, to=end.season)
-increment.timestamp = 30
-half.hourly.timestamps = seq(from=start.season, by=increment.timestamp*60, to=end.season)
+create.long.seq.datetime = function(dat){
+  start.season = unique(dat$datetime)[1]
+  increment.timestamp = 60
+  end.season = unique(dat$datetime)[length(unique(dat$datetime))]
+  hour(end.season) = 23 # take it to the end of the last day
+  hourly.timestamps = seq(from=start.season, by=increment.timestamp*60, to=end.season)
+  increment.timestamp = 30
+  half.hourly.timestamps = seq(from=start.season, by=increment.timestamp*60, to=end.season)  
+  return(half.hourly.timestamps)
+}
+
+half.hourly.timestamps.2014 = create.long.seq.datetime(dat2014)
 
 #====== +++ === === +++ === === +++ === ===
 # Add a column to data.frame, assigning TRUE or FALSE to vessel count
@@ -85,13 +99,14 @@ half.hourly.timestamps = seq(from=start.season, by=increment.timestamp*60, to=en
 #====== +++ === === +++ === === +++ === ===
 assign.vessel.boolean = function(dat){
   dat$Vessel.related.count = rep(FALSE, nrow(dat)) # create dummy column to be filled below
-  Vessel.related.count.ii = which(2014$CountType %in% c("PRE", "C", "POST")) # which CountType records are "PRE", "C" or "POST"
-  2014$Vessel.related.count[Vessel.related.count.ii] = TRUE  # fill column  
+  Vessel.related.count.ii = which(dat$CountType %in% c("PRE", "C", "POST")) # which CountType records are "PRE", "C" or "POST"
+  dat$Vessel.related.count[Vessel.related.count.ii] = TRUE  # fill column  
   return(dat)
 }
-dat2014$Vessel.related.count = rep(FALSE, nrow(dat2014)) # create dummy column to be filled below
-Vessel.related.count.ii = which(dat2014$CountType %in% c("PRE", "C", "POST")) # which CountType records are "PRE", "C" or "POST"
-dat2014$Vessel.related.count[Vessel.related.count.ii] = TRUE  # fill column
+
+# dat2014$Vessel.related.count = rep(FALSE, nrow(dat2014)) # create dummy column to be filled below
+# Vessel.related.count.ii = which(dat2014$CountType %in% c("PRE", "C", "POST")) # which CountType records are "PRE", "C" or "POST"
+# dat2014$Vessel.related.count[Vessel.related.count.ii] = TRUE  # fill column
 
 # write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
@@ -111,17 +126,6 @@ assign.count.ids = function(dat.df){
 }
 
 dat2014 = assign.count.ids(dat2014)
-
-# count.id = seq(from = 1, to = length(unique(dat2014$datetime))); count.id 
-# ii = NULL
-# dat2014$Count.id = rep(-99, nrow(dat2014))
-# for(ii in 1:length(unique(dat2014$datetime))){ # probably a more elegant way to do this, rather than a loop.
-#   rec.numbers = NULL
-#   rec.numbers = which(dat2014$datetime == unique(dat2014$datetime)[ii])  
-#   dat2014$Count.id[rec.numbers] = count.id[ii]
-# }
-
-# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Designate survey.counts for Inclusion:
@@ -174,13 +178,17 @@ dat2014 = join(x = dat2014, y = counts.to.include.stratum, by = c("Count.id", "S
 #  Do this with just the hour (no date) and with datetime
 #   TODO: Make this into a generic function that can be called on non-2014 data -- possibly add functionality to 'convert.datetime()' function
 #====== +++ === === +++ === === +++ === ===
-rounded.hour = dat2014$datetime # create a new column that will contain datetime rounded to the nearest hour 
-rounded.hour = format(round(rounded.hour, units="hours"), format="%H:%M") # seems to work
-dat2014$rounded.hour = rounded.hour # append the rounded hours to data.frame
+round.to.nearest.hr = function(dat){
+  rounded.hour = dat$datetime # create a new column that will contain datetime rounded to the nearest hour 
+  rounded.hour = format(round(rounded.hour, units="hours"), format="%H:%M") # seems to work
+  dat$rounded.hour = rounded.hour # append the rounded hours to data.frame
+  
+  datetime.rounded.to.hr = dat$datetime
+  datetime.rounded.to.hr = round_date(datetime.rounded.to.hr, unit = "hour") # rounds to nearest hour
+  dat$datetime.rounded.to.hr = datetime.rounded.to.hr # append the rounded hours to data.frame  
+}
 
-datetime.rounded.to.hr = dat2014$datetime
-datetime.rounded.to.hr = round_date(datetime.rounded.to.hr, unit = "hour") # rounds to nearest hour
-dat2014$datetime.rounded.to.hr = datetime.rounded.to.hr # append the rounded hours to data.frame
+dat2014 = round.to.nearest.hr(dat2014)
 
 # write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 

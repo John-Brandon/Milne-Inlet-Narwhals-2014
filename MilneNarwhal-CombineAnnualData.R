@@ -77,6 +77,8 @@ filter.sight = function(dat){
 
 filtered.dat = do.dates.and.ids(dat2013)
 filtered.dat = filter.sight(filtered.dat) # filter sightability, returns only those counts entirely in Good or Excellence (no P or NA)
+filtered.dat = assign.vessel.boolean(filtered.dat) # assign vessel count boolean (TRUE if count related to vessel)
+
 str(filtered.dat)
 write.csv(filtered.dat, "foo.csv"); system("open foo.csv") # check
 
