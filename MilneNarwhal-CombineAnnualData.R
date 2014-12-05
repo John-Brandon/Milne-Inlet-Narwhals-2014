@@ -43,13 +43,6 @@ dat2013 = read.csv(file = dfile2013, header = TRUE, as.is = TRUE, na.strings = c
 #  Note: 2013 was the Pilot Study year. So, there was some on the fly learning, and data collection protocol evolved in field.
 #   e.g. not all stratum surveyed (missing counts) and environmental data not recorded for each stratum during first few counts.
 #====== +++ === === +++ === === +++ === ===
-
-# is.poor = function(freq) {
-# # Intermediate function to help determine if an individual Count.id had at least one instance of Poor sightability
-#   is.poor = ifelse(freq == 0, FALSE, TRUE)
-#   return(is.poor)
-# }
-
 do.dates.and.ids = function(dat){
   dat$Time = dat$StartTime 
   dat = convert.datetime(dat)  # munge datetimes (function is defined the 'MilneNarwhal-Munging2014Data.R' script)
