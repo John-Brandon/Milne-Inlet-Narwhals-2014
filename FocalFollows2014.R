@@ -128,19 +128,20 @@ table.beh.list = ddply(fixdat2014, .(Follow, PrimaryBeh), summarise, SecondaryLi
 rm.these.records = which(is.na(table.beh.list$PrimaryBeh))
 table.beh.list = table.beh.list[-rm.these.records,]
 
+table.beh.list
+
 #table.beh.list = mutate(table.beh.list, PrimaryBeh = gsub(", NA", "", table.beh.list$PrimaryList))
-table.beh.list = mutate(table.beh.list, SecondaryList = gsub(", NA", "", table.beh.list$SecondaryList))
-table.beh.list = mutate(table.beh.list, SecondaryList = gsub(", N", "", table.beh.list$SecondaryList))
-table.beh.list = mutate(table.beh.list, SecondaryList = gsub("N, ", "", table.beh.list$SecondaryList))
+table.beh.list = mutate(table.beh.list, SecondaryList = gsub("\\+ NA", "", table.beh.list$SecondaryList))
+table.beh.list = mutate(table.beh.list, SecondaryList = gsub(" \\+ N", "", table.beh.list$SecondaryList))
+table.beh.list = mutate(table.beh.list, SecondaryList = gsub("N \\+ ", "", table.beh.list$SecondaryList))
 table.beh.list = mutate(table.beh.list, SecondaryList = gsub("N", "", table.beh.list$SecondaryList))
-table.beh.list = mutate(table.beh.list, SecondaryList = gsub(" \\+ DI", "DI", table.beh.list$SecondaryList))
+table.beh.list = mutate(table.beh.list, SecondaryList = gsub("A", "", table.beh.list$SecondaryList))
+table.beh.list = mutate(table.beh.list, SecondaryList = gsub(" \\+ DI", "DI", table.beh.list$SecondaryList)) # Note: Back-slashes in front of plus sign (+)
 table.beh.list = mutate(table.beh.list, SecondaryList = gsub("DI \\+ ", "DI", table.beh.list$SecondaryList))
 table.beh.list
 
-with(table.beh.list, table(PrimaryBeh, SecondaryList))
+with(table.beh.list, table(SecondaryList, PrimaryBeh))
 
-install.packages("qdap")
-?strip
 #====== +++ === === +++ === === +++ === ===
 # 3. 
 # For each track, what behaviour combination did the track end in? (primary and secondary)  

@@ -83,6 +83,12 @@ half.hourly.timestamps = seq(from=start.season, by=increment.timestamp*60, to=en
 # Add a column to data.frame, assigning TRUE or FALSE to vessel count
 #  If CountType is "PRE", "C" or "POST" vessel count is TRUE, otherwise FALSE
 #====== +++ === === +++ === === +++ === ===
+assign.vessel.boolean = function(dat){
+  dat$Vessel.related.count = rep(FALSE, nrow(dat)) # create dummy column to be filled below
+  Vessel.related.count.ii = which(2014$CountType %in% c("PRE", "C", "POST")) # which CountType records are "PRE", "C" or "POST"
+  2014$Vessel.related.count[Vessel.related.count.ii] = TRUE  # fill column  
+  return(dat)
+}
 dat2014$Vessel.related.count = rep(FALSE, nrow(dat2014)) # create dummy column to be filled below
 Vessel.related.count.ii = which(dat2014$CountType %in% c("PRE", "C", "POST")) # which CountType records are "PRE", "C" or "POST"
 dat2014$Vessel.related.count[Vessel.related.count.ii] = TRUE  # fill column
@@ -179,11 +185,71 @@ dat2014$datetime.rounded.to.hr = datetime.rounded.to.hr # append the rounded hou
 # write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
-# Rounding 'datetime' (class POSIXct) to nearest half hour 
-#  uses lubridate
+# Return decimal hour (from datetime rounded to nearest half hour)
 #====== +++ === === +++ === === +++ === ===
-dat2014$datetime.nearest.half.hr = dat2014$datetime
-minute(dat2014$datetime.nearest.half.hr) = round(minute(dat2014$datetime.nearest.half.hr)/30)*30 # round to nearest five minute
+return.dec.hour = function(dat){
+#  uses lubridate  
+  dec.hour = ymd_hms(dat$datetime.nearest.half.hr)
+  dec.hour = hour(dec.hour) + minute(dec.hour)/60 + second(dec.hour)/3600
+  dat$dec.hour = dec.hour
+  return(dat)
+}
+
+dat2014 = return.dec.hour(dat2014)
+
+#====== +++ === === +++ === === +++ === ===
+# Rounding 'datetime' (class POSIXct) to nearest half hour 
+#====== +++ === === +++ === === +++ === ===
+round.to.nearest.half.hr = function(dat){
+  #  uses lubridate
+  dat$datetime.nearest.half.hr = ymd_hms(dat$datetime)
+  minute(dat$datetime.nearest.half.hr) = round(minute(dat$datetime.nearest.half.hr)/30)*30 # round to nearest half hour
+  return(dat)
+}
+
+dat2014 = round.to.nearest.half.hr(dat2014)
+
+# dat2014$datetime.nearest.half.hr = dat2014$datetime
+# minute(dat2014$datetime.nearest.half.hr) = round(minute(dat2014$datetime.nearest.half.hr)/30)*30 # round to nearest half hour
+
+#====== +++ === === +++ === === +++ === ===
+# Rounding 'datetime' (class POSIXct) to nearest five minute (to align with tide data, which are every 5 minutes)
+#====== +++ === === +++ === === +++ === ===
+round.to.nearest.five.min = function(dat){
+#  uses lubridate
+  dat$datetime.rounded.to.five.min = dat$datetime
+  dat$datetime.rounded.to.five.min = ymd_hms(dat$datetime.rounded.to.five.min)
+  minute(dat$datetime.rounded.to.five.min) = round(minute(dat$datetime.rounded.to.five.min)/5)*5 # round to nearest five minute
+  return(dat)
+}
+
+dat2014 = round.to.nearest.five.min(dat2014)
+
+# dat2014$datetime.rounded.to.five.min = dat2014$datetime
+# minute(dat2014$datetime.rounded.to.five.min) = round(minute(dat2014$datetime.rounded.to.five.min)/5)*5 # round to nearest five minute
+
+# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+#====== +++ === === +++ === === +++ === ===
+# Add column with decimal hour:min
+#====== +++ === === +++ === === +++ === ===
+calc.dec.hour = function(dat){
+  dat$dec.hour = ymd_hms(dat$datetime.nearest.half.hr)  
+  dat$dec.hour = hour(dat$dec.hour) + minute(dat$dec.hour)/60 + second(dat$dec.hour)/3600
+  return(dat)
+}
+
+dat2014 = calc.dec.hour(dat2014)
+
+#====== +++ === === +++ === === +++ === ===
+# Add column with Julian date
+#====== +++ === === +++ === === +++ === ===
+calc.julian.date = function(dat){
+  dat$julian.date = ymd(dat$Date)  
+  dat$julian.date = yday(dat$julian.date)
+  return(dat)
+}
+
+dat2014 = calc.julian.date(dat2014)
 
 #====== +++ === === +++ === === +++ === ===
 # Extract start and end times for each vessel count and create a new data.frame with those
@@ -208,15 +274,6 @@ stop.time = with_tz(stop.time, tzone = tz(dat2014$datetime))
 large.vess.times = data.frame(large.vess.transit, start.time, stop.time)
 
 #====== +++ === === +++ === === +++ === ===
-# Rounding 'datetime' (class POSIXct) to nearest five minute (to align with tide data, which are every 5 minutes)
-#  uses lubridate
-#====== +++ === === +++ === === +++ === ===
-dat2014$datetime.rounded.to.five.min = dat2014$datetime
-minute(dat2014$datetime.rounded.to.five.min) = round(minute(dat2014$datetime.rounded.to.five.min)/5)*5 # round to nearest five minute
-
-# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-#====== +++ === === +++ === === +++ === ===
 # Merge tide data into RAD count data.frame
 #====== +++ === === +++ === === +++ === ===
 dat.tides.2014$datetime = as.POSIXct(dat.tides.2014$datetime) # make sure datetime class is consistent with main data.frame's
@@ -234,6 +291,7 @@ dat2014 = merge(x = dat2014, y = dat.tides.2014.subset, by.x = "datetime.rounded
 dat2014$GroupSizeLevel = rep(NA, nrow(dat2014))
 dat2014$GroupSizeLevel[which(dat2014$GroupSize == 0)] = "ZeroCount"
 dat2014$GroupSizeLevel[which(dat2014$GroupSize > 0)] = "PositiveCount"
+
 
 #====== +++ === === +++ === === +++ === ===
 # Create another data.frame, with a subset of the counts which meet sightability criteria

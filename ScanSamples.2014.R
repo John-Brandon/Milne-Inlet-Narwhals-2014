@@ -12,6 +12,7 @@
 #  1) Your main directory will differ, so you'll need to change the 'base.dir' value
 #  2) Save 
 #====== +++ === === +++ === === +++ === ===
+library(reshape)
 library(reshape2)
 library(plyr) # for manipulating data
 library(dplyr) 
@@ -216,8 +217,12 @@ gg5 + geom_bar() + xlab("Formation") + ylab("Count") + facet_grid(TravelDirectio
 # 3(c). 
 # Group Speed
 #====== +++ === === +++ === === +++ === ===
-table(scandat.NS$Speed, scandat.NS$TravelDirection)
-
+table.speed = table(scandat.NS$Speed, scandat.NS$TravelDirection)
+table.speed
+#chisq.test(table.speed)
+table.speed[c(2,3),] # just medium and slow, because not enough samples
+chisq.test(table.speed[c(2,3),])
+#fisher.test(table.speed[c(2,3),])
 gg6 = ggplot(scandat, aes(x = Speed))
 gg6 + geom_bar() + xlab("Group Speed") + ylab("Count") + facet_grid(TravelDirection ~ .) + scale_x_discrete(limits=c("Slow","Medium","Fast"))
 
@@ -227,7 +232,9 @@ gg6 + geom_bar() + xlab("Group Speed") + ylab("Count") + facet_grid(TravelDirect
 #====== +++ === === +++ === === +++ === ===
 group.dist.away.dat = subset(scandat.NS, DistanceAway != "") # TODO: Move this line of code to munging
 
-table(group.dist.away.dat$DistanceAway, group.dist.away.dat$TravelDirection)
+table.dist.away = table(group.dist.away.dat$DistanceAway, group.dist.away.dat$TravelDirection)
+table.dist.away
+chisq.test(table.dist.away)
 
 gg7 = ggplot(group.dist.away.dat, aes(x = DistanceAway))
 gg7 + geom_bar() + xlab("Group Distance Away") + ylab("Count") + facet_grid(TravelDirection ~ .)
@@ -279,16 +286,6 @@ gg8 = gg8 + geom_bar(aes(order = desc(variable)), stat = "identity")
 gg8 = gg8 + scale_y_discrete(breaks = seq(0, 30, by = 2))
 gg8 + scale_fill_brewer("Stage class", palette="Set1", labels = c("Adult with Tusk", "Juvenile with Tusk", "Adult No Tusk", "Juvenile No Tusk", "Calf"))
 
-# Alternative Palettes below
-# gg8 + scale_fill_manual(values = c("red", "black","blue", "green", "orange")) 
-# gg8 + scale_fill_manual(values = c("#ffffcc", "#a1dab4","#41b6c4", "#2c7fb8", "#253494"))
-# gg8 + scale_fill_manual(values = c("#7b3294", "#c2a5cf", "#f7f7f7", "#a6dba0", "#008837"))
-# gg8 + scale_fill_brewer()
-# gg8 + scale_fill_brewer(palette="Reds")
-# gg8 + scale_fill_brewer("Test", palette="Greys")
-# gg8 + scale_fill_brewer("Test", type = "div", palette=6)
-# gg8 + scale_fill_brewer("Test", palette=12)
-
 
 # For groups where group composition is known (i.e. GroupSize = sum(YesTusk_A,YesTusk_J, NoTusk_A, NoTusk_J, NoTusk_C)
 #====== +++ === === +++ === === +++ === ===
@@ -314,6 +311,73 @@ gg9 + scale_fill_brewer("Stage class", palette="Set1", labels = c("Adult with Tu
 
 # For groups where group composition is known (i.e. GroupSize = sum(YesTusk_A,YesTusk_J, NoTusk_A, NoTusk_J, NoTusk_C)
 #====== +++ === === +++ === === +++ === ===
+# Designate into one of five "Super Groups"
+# 1. NoTusk groups without calves: 
+#     (i) NoTusk_J, (ii) NoTusk_A + NoTusk_J (iii) NoTusk_A
+# 2. NoTusk groups with calves:
+#     (i) NoTusk_A + NoTusk_C, (ii) NoTusk_A + NoTusk_J + NoTusk_C
+# 3. YestTusk groups:
+#     (i) YesTusk_A, (ii) YesTusk_J, YesTuskA + YesTusk_J
+# 4. mixed tusk groups without calves: 
+#     (i) YT_A + YT_J + NT_J, (ii) YT_A + NT_J, (iii) YT_A + NT_A + NT_J, (iv) YT_A + NT_A, (v) YT_J + NT_A + NT_J
+# 5. mixed tusk groups with calves:
+#     (i) YT_J + NT_A + NT_J + NT_C, (ii) YT_J + NT_A + NT_C, (iii) YT_A + NT_A + NT_J + NT_C
+#====== +++ === === +++ === === +++ === ===
+View(dat.GroupCompKnown)
+names(dat.GroupCompKnown)
+
+dat.GroupCompKnown$YesTusk_A_tf = rep("", nrow(dat.GroupCompKnown))
+dat.GroupCompKnown$YesTusk_J_tf = rep("", nrow(dat.GroupCompKnown))
+dat.GroupCompKnown$NoTusk_A_tf = rep("", nrow(dat.GroupCompKnown))
+dat.GroupCompKnown$NoTusk_J_tf = rep("", nrow(dat.GroupCompKnown))
+dat.GroupCompKnown$NoTusk_C_tf = rep("", nrow(dat.GroupCompKnown))
+
+dat.GroupCompKnown$YesTusk_A_tf = with(dat.GroupCompKnown, ifelse(YesTusk_A > 0, 1, 0))
+dat.GroupCompKnown$YesTusk_J_tf = with(dat.GroupCompKnown, ifelse(YesTusk_J > 0, 1, 0))
+dat.GroupCompKnown$NoTusk_A_tf = with(dat.GroupCompKnown, ifelse(NoTusk_A > 0, 1, 0))
+dat.GroupCompKnown$NoTusk_J_tf = with(dat.GroupCompKnown, ifelse(NoTusk_J > 0, 1, 0))
+dat.GroupCompKnown$NoTusk_C_tf = with(dat.GroupCompKnown, ifelse(NoTusk_C > 0, 1, 0))
+
+dat.GroupCompKnown$super.group.bits = with(dat.GroupCompKnown, paste(YesTusk_A_tf, YesTusk_J_tf, NoTusk_A_tf, NoTusk_J_tf, NoTusk_C_tf, sep=""))
+with(dat.GroupCompKnown, unique(super.group.bits))
+
+# YesTusk_A ; YesTusk_J ; NoTusk_A ; NoTusk_J ; NoTusk_C
+SuperGroup1 = c("00010", "00110", "00100") # (i) NoTusk_J, (ii) NoTusk_A + NoTusk_J (iii) NoTusk_A
+SuperGroup2 = c("00101", "00111") # (i) NoTusk_A + NoTusk_C, (ii) NoTusk_A + NoTusk_J + NoTusk_C
+SuperGroup3 = c("10000", "01000", "11000") # (i) YesTusk_A, (ii) YesTusk_J, (iii) YesTuskA + YesTusk_J
+SuperGroup4 = c("11010", "10010", "10110", "10100", "01110") # (i) YT_A + YT_J + NT_J, (ii) YT_A + NT_J, (iii) YT_A + NT_A + NT_J, (iv) YT_A + NT_A, (v) YT_J + NT_A + NT_J
+SuperGroup5 = c("01111", "01101", "10111") # (i) YT_J + NT_A + NT_J + NT_C, (ii) YT_J + NT_A + NT_C, (iii) YT_A + NT_A + NT_J + NT_C
+
+dat.GroupCompKnown$SuperGroup = rep("", nrow(dat.GroupCompKnown))
+ii = NULL
+for(ii in 1:nrow(dat.GroupCompKnown)){
+  if(dat.GroupCompKnown$super.group.bits[ii] %in% SuperGroup1) dat.GroupCompKnown$SuperGroup[ii] = 1
+  if(dat.GroupCompKnown$super.group.bits[ii] %in% SuperGroup2) dat.GroupCompKnown$SuperGroup[ii] = 2
+  if(dat.GroupCompKnown$super.group.bits[ii] %in% SuperGroup3) dat.GroupCompKnown$SuperGroup[ii] = 3
+  if(dat.GroupCompKnown$super.group.bits[ii] %in% SuperGroup4) dat.GroupCompKnown$SuperGroup[ii] = 4
+  if(dat.GroupCompKnown$super.group.bits[ii] %in% SuperGroup5) dat.GroupCompKnown$SuperGroup[ii] = 5
+}
+with(dat.GroupCompKnown, unique(SuperGroup))
+View(dat.GroupCompKnown)
+
+# if(dat.GroupCompKnown$super.group.bits %in% SuperGroup1) dat.GroupCompKnown$SuperGroup = 1
+# if(dat.GroupCompKnown$super.group.bits %in% SuperGroup2) dat.GroupCompKnown$SuperGroup = 2
+# if(dat.GroupCompKnown$super.group.bits %in% SuperGroup3) dat.GroupCompKnown$SuperGroup = 3
+# if(dat.GroupCompKnown$super.group.bits %in% SuperGroup4) dat.GroupCompKnown$SuperGroup = 4
+# if(dat.GroupCompKnown$super.group.bits %in% SuperGroup5) dat.GroupCompKnown$SuperGroup = 5
+# 
+# with(dat.GroupCompKnown, unique(SuperGroup))
+
+# dat.GroupCompKnown$YesTusk_A_tf = with(dat.GroupCompKnown, ifelse(YesTusk_A > 0, "YesTusk_A", ""))
+# dat.GroupCompKnown$YesTusk_J_tf = with(dat.GroupCompKnown, ifelse(YesTusk_J > 0, "YesTusk_J", ""))
+# dat.GroupCompKnown$NoTusk_A_tf = with(dat.GroupCompKnown, ifelse(NoTusk_A > 0, "NoTusk_A", ""))
+# dat.GroupCompKnown$NoTusk_J_tf = with(dat.GroupCompKnown, ifelse(NoTusk_J > 0, "NoTusk_J", ""))
+# dat.GroupCompKnown$NoTusk_C_tf = with(dat.GroupCompKnown, ifelse(NoTusk_C > 0, "NoTusk_C", ""))
+
+dat.GroupCompKnown$GroupComp = with(dat.GroupCompKnown, paste(YesTusk_A_tf, YesTusk_J_tf, NoTusk_A_tf, NoTusk_J_tf, NoTusk_C_tf, sep = ","))
+levels(as.factor(dat.GroupCompKnown$GroupComp))
+
+#====== +++ === === +++ === === +++ === ===
 # 8. 
 # For predominant group types, I’m guessing these would be 
 #  1. NoTusk_A and NoTusk_C   
@@ -324,35 +388,40 @@ gg9 + scale_fill_brewer("Stage class", palette="Set1", labels = c("Adult with Tu
 #
 #  I’d like to summarize group spread, formation, speed, and distance away (as in #3)
 #====== +++ === === +++ === === +++ === ===
-
-View(dat.GroupCompKnown)
 names(dat.GroupCompKnown)
+with(dat.GroupCompKnown, table(SuperGroup, GroupSpread)) # Table Spread
+with(dat.GroupCompKnown, table(SuperGroup, Formation)) # Table Formation
+with(dat.GroupCompKnown, table(SuperGroup, Speed)) # Table Speed
+with(dat.GroupCompKnown, table(SuperGroup, DistanceAway)) # Table Distance Away
 
-dat.GroupCompKnown$YesTusk_A_tf = rep("", nrow(dat.GroupCompKnown))
-dat.GroupCompKnown$YesTusk_J_tf = rep("", nrow(dat.GroupCompKnown))
-dat.GroupCompKnown$NoTusk_A_tf = rep("", nrow(dat.GroupCompKnown))
-dat.GroupCompKnown$NoTusk_J_tf = rep("", nrow(dat.GroupCompKnown))
-dat.GroupCompKnown$NoTusk_C_tf = rep("", nrow(dat.GroupCompKnown))
+# Use barplots to summarize GroupSpread
+gg10 = ggplot(subset(dat.GroupCompKnown, GroupSpread %in% c("Tight", "Loose")), aes(x = GroupSpread))
+gg10 + geom_bar() + xlab("Group Spread") + ylab("Count") + facet_grid(SuperGroup ~ .)
 
-dat.GroupCompKnown$YesTusk_A_tf = with(dat.GroupCompKnown, ifelse(YesTusk_A > 0, "YesTusk_A", ""))
-dat.GroupCompKnown$YesTusk_J_tf = with(dat.GroupCompKnown, ifelse(YesTusk_J > 0, "YesTusk_J", ""))
-dat.GroupCompKnown$NoTusk_A_tf = with(dat.GroupCompKnown, ifelse(NoTusk_A > 0, "NoTusk_A", ""))
-dat.GroupCompKnown$NoTusk_J_tf = with(dat.GroupCompKnown, ifelse(NoTusk_J > 0, "NoTusk_J", ""))
-dat.GroupCompKnown$NoTusk_C_tf = with(dat.GroupCompKnown, ifelse(NoTusk_C > 0, "NoTusk_C", ""))
+# Use barplots to summarize Formation
+gg11 = ggplot(subset(dat.GroupCompKnown, Formation %in% c("Circular", "Linear", "Parallel")), aes(x = Formation))
+gg11 + geom_bar() + xlab("Formation") + ylab("Count") + facet_grid(SuperGroup ~ .)
 
-dat.GroupCompKnown$GroupComp = with(dat.GroupCompKnown, paste(YesTusk_A_tf, YesTusk_J_tf, NoTusk_A_tf, NoTusk_J_tf, NoTusk_C_tf, sep = ","))
-levels(as.factor(dat.GroupCompKnown$GroupComp))
-dat.GroupCompTable = table(dat.GroupCompKnown$GroupComp, dat.GroupCompKnown$GroupSize)
-dat.GroupCompTable = as.data.frame(dat.GroupCompTable)
-TotalGroups = ddply(dat.GroupCompTable, .(Var1), summarise, TotalGroups = sum(Freq))
+# Use barplots to summarize Speed
+gg12 = ggplot(dat.GroupCompKnown, aes(x = Speed))
+gg12 + geom_bar() + xlab("Group Speed") + ylab("Count") + facet_grid(SuperGroup ~ .) + scale_x_discrete(limits=c("Slow","Medium","Fast"))
 
-table.group.comp = cast(dat.GroupCompTable, Var1 ~ Var2)
-table.group.comp$TotalGroups = TotalGroups$TotalGroups
-table.group.comp = arrange(table.group.comp, desc(TotalGroups))
-table.group.comp
+# Use barplots to summarize Distance Away
+gg13 = ggplot(dat.GroupCompKnown, aes(x = DistanceAway))
+gg13 + geom_bar() + xlab("Group Distance Away") + ylab("Count") + facet_grid(SuperGroup ~ .)
 
-head(dat.GroupCompKnown)
-gsub(',,', '', dat.GroupCompKnown$GroupComp[1]) # substitutes first argument with second argument, in the string in third argument
+# dat.GroupCompTable = table(dat.GroupCompKnown$GroupComp, dat.GroupCompKnown$GroupSize)
+# dat.GroupCompTable = as.data.frame(dat.GroupCompTable)
+# 
+# TotalGroups = ddply(dat.GroupCompTable, .(Var1), summarise, TotalGroups = sum(Freq))
+# 
+# table.group.comp = cast(dat.GroupCompTable, Var1 ~ Var2)
+# table.group.comp$TotalGroups = TotalGroups$TotalGroups
+# table.group.comp = arrange(table.group.comp, desc(TotalGroups))
+# table.group.comp
+# 
+# head(dat.GroupCompKnown)
+# gsub(',,', '', dat.GroupCompKnown$GroupComp[1]) # substitutes first argument with second argument, in the string in third argument
 
 # For groups where group composition is known (i.e. GroupSize = sum(YesTusk_A,YesTusk_J, NoTusk_A, NoTusk_J, NoTusk_C)
 #====== +++ === === +++ === === +++ === ===
@@ -389,7 +458,7 @@ with(dat.GroupCompKnown, table(GroupComp, Formation))
 # Define a new column with a pasted list of group-types
 
 save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/ScanSamples2014.RData")
-
+rm(list = ls())
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/ScanSamples2014.RData")
 
 
