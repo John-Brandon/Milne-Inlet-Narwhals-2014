@@ -13,14 +13,7 @@
 #  3) Loads existing workspace, that contains 2014 data (dat2014)
 #  4) Loads existing workspace, that contains munged 2013 and 2014 tide data
 #====== +++ === === +++ === === +++ === ===
-library(plyr) # Hadley Wickham's "Plier" package for splitting data.frames and applying functions to each subset
-library(dplyr)
-library(lubridate) # package with handy functions for working with dates and times
-library(reshape)
-library(reshape2)  # Wickham's package that, with respect to data.frames, melts (long format) and casts (wide format). Google it.
 
-# install.packages("dplyr")
-# library(dplyr) # 'dplyr' is Wickham's updated version of 'plyr'
 
 rm(list=ls()) # clear leftovers from previous workspace
 
@@ -30,6 +23,9 @@ load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal
 # Load workspace with munged 2013 AND 2014 tide data
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/TideData.MilneNarwhal.2014.RData")
 
+# Load libraries
+load.packages()
+
 #====== +++ === === +++ === === +++ === ===
 # Read 2013 RAD data 
 #====== +++ === === +++ === === +++ === ===
@@ -38,43 +34,49 @@ dfile2013 = "2013.milne.inlet.narwhal.csv" # 2014 RAD data file, saved as comma 
 dat2013 = read.csv(file = dfile2013, header = TRUE, as.is = TRUE, na.strings = c("NA", "x", "X")) # Read data file 
 
 #====== +++ === === +++ === === +++ === ===
+# Join dat2014 and dat2013 data.frames
+#====== +++ === === +++ === === +++ === ===
+intersect(names(dat2013), names(dat2014))
+setdiff(names(dat2013), names(dat2014)) # names of column vectors that are found in dat2013 but not dat2014
+setdiff(names(dat2014), names(dat2013)) # names of column vectors that are found in dat2014 but not dat2013
+
+dat = join(dat2014, dat2013)
+setdiff(names(dat), names(dat2014)) # names of column vectors that are found in dat but not dat2014
+setdiff(names(dat), names(dat2013)) # names of column vectors that are found in dat but not dat2013
+
+#====== +++ === === +++ === === +++ === ===
 # Munge 2013 RAD data -- follow Scott Raborn's "filters" from 2013 report
 #  After filters, there were 5 days that met criteria for inclusion in model: 13, 14, 21, 23 and 26 Aug (see Table D-1 of 2013 report)
 #  Note: 2013 was the Pilot Study year. So, there was some on the fly learning, and data collection protocol evolved in field.
 #   e.g. not all stratum surveyed (missing counts) and environmental data not recorded for each stratum during first few counts.
 #====== +++ === === +++ === === +++ === ===
-do.dates.and.ids = function(dat){
-  dat$Time = dat$StartTime 
-  dat = convert.datetime(dat)  # munge datetimes (function is defined the 'MilneNarwhal-Munging2014Data.R' script)
-  dat = round.to.nearest.half.hr(dat) # This function is defined in munging script
-  dat = round.to.nearest.five.min(dat) # This function is defined in munging script
-  dat = calc.dec.hour(dat) # This function is defined in munging script -- uses times rounded to half hour 
-  dat = calc.julian.date(dat) # This function is defined in munging script
-  dat = assign.count.ids(dat)  # assign id numbers for each count  
-  return(dat)
-}
-
 filter.sight = function(dat){
 # filter out counts if any part of a count is in (i) Poor sightability or (ii) Sightability was not recorded, i.e. NA (when rain).
 # This is a strict version of filtering; if only one stratum doesn't meet criteria, that count is ignored across all strata  
   table_sight_countid = with(dat, table(Sightability, Count.id, useNA = "ifany"))
   table_sight_countid = as.data.frame(table_sight_countid)
   
-  good.dat = with(table_sight_countid, Freq[which(Sightability == "P")]) # pre-filter for Poor Sightability
-  good.dat = ifelse(good.dat == 0, TRUE, FALSE)
-  count.keep.ii = which(good.dat == TRUE)
-  length(count.keep.ii)
+  good.dat = with(table_sight_countid, Freq[which(Sightability == "P")]) # Returns vector with number of "P"s for each Count.id
+  good.dat = ifelse(good.dat == 0, TRUE, FALSE) # Returns vector of TRUE / FALSE's
+  count.keep.ii = which(good.dat == TRUE) # pre-filter for Poor Sightability
 
-  good.dat.na = with(table_sight_countid, Freq[which(is.na(Sightability))]) # pre-filter for NA Sightability
-  good.dat.na = ifelse(good.dat.na == 0, TRUE, FALSE)
-  count.keep.na.ii = which(good.dat.na == TRUE)
+  good.dat.na = with(table_sight_countid, Freq[which(is.na(Sightability))]) # Returns vector with number of NAs for each Count.id
+  good.dat.na = ifelse(good.dat.na == 0, TRUE, FALSE) # Returns vector of TRUE / FALSE's
+  count.keep.na.ii = which(good.dat.na == TRUE) # pre-filter for NA Sightability
   
   count.keep.set = intersect(count.keep.ii, count.keep.na.ii) # count.id needs to meet both P and NA pre-filter conditions to be kept
-  
-  dat = filter(dat, Count.id %in% count.keep.set) # filter is a function in dplyr -- selects rows that meet a criteria
+
+  dat = filter(dat, Count.id %in% count.keep.set) # filter is a function from dplyr package -- selects rows that meet a criteria
   return(dat)
 }
 
+# Try with dat2014
+nrow(dat2014)
+str(dat2014)
+dat2014 = filter.sight(dat2014)
+nrow(dat2014) 
+
+# Filter dat2013 
 filtered.dat = do.dates.and.ids(dat2013)
 filtered.dat = filter.sight(filtered.dat) # filter sightability, returns only those counts entirely in Good or Excellence (no P or NA)
 filtered.dat = assign.vessel.boolean(filtered.dat) # assign vessel count boolean (TRUE if count related to vessel)
@@ -82,11 +84,7 @@ filtered.dat = assign.vessel.boolean(filtered.dat) # assign vessel count boolean
 str(filtered.dat)
 write.csv(filtered.dat, "foo.csv"); system("open foo.csv") # check
 
-# # TODO : All of these function calls should be nested in the convert.datetime() super function
-# filtered.dat = round.to.nearest.half.hr(filtered.dat) # This function is defined in munging script
-# filtered.dat = round.to.nearest.five.min(filtered.dat) # This function is defined in munging script
-# filtered.dat = calc.dec.hour(filtered.dat) # This function is defined in munging script -- uses times rounded to half hour 
-# filtered.dat = calc.julian.date(filtered.dat) # This function is defined in munging script
+View(tot.counts.2013)
 
 View(filtered.dat2013)
 # filtered.dat2013 = subset(dat2013, Sightability %in% c("G", "E")) # filter out any sighting conditions that are not Good - Excellent
@@ -105,18 +103,25 @@ str(filtered.dat2013) # check
 
 # View(filtered.dat2013)
 
-
+# TODO: Combine annual data sets, filter, then run this to sum counts (if we want to model summed counts)
 tot.counts.2013 = ddply(filtered.dat2013, .(datetime, Stratum), summarise, 
                         value = sum(GroupSize, na.rm = TRUE), 
                         VesselPresence = unique(WatchType),
                         SeaState = unique(SeaState)) # uses 'plyr' package, could also use function aggregate
 
-write.csv(x = tot.counts.2013, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+View(tot.counts.2013)
+
+# Plot raw counts by SeaState and add a GLM fit
+gfoo = ggplot(data = tot.counts.2013, aes(x = SeaState, y = value)) 
+gfoo = gfoo + geom_point(position = position_jitter(width = 0.25), alpha = 0.4) + ylab("Count") + xlab("Sea State") 
+gfoo # + stat_smooth(method = glm, family = "poisson")
+
+# make barplots like Figure D-1 in 2013 report (Appendix D)
+foo = ddply(tot.counts.2013, .(SeaState), summarize, mean.count = mean(value)) # get mean number per stratum count
+barplot(foo$mean.count, names.arg = foo$SeaState, xlab = "Sea State", ylab = "Mean number of narwhals") # , axis.lty=1 
+(gfoo1 = ggplot(data = foo, aes(x = SeaState, y = mean.count)) + geom_bar(stat = "identity"))
 
 dat.mat.2013 = cast(tot.counts.2013, datetime + VesselPresence ~ Stratum) # reshape the data.frame into Table D-1 from 2013 report (cast in Wickham's lexicon)
-
-dat.mat.2013$datetime.rounded.to.half.hour = dat.mat.2013$datetime # Round datetime to the nearest half-hour
-minute(dat.mat.2013$datetime.rounded.to.half.hour) = round(minute(dat.mat.2013$datetime.rounded.to.half.hour)/30)*30 # round to nearest five minute
 
 View(dat.mat.2013)
 # write.csv(x = dat.mat.2013, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check

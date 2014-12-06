@@ -8,24 +8,37 @@
 ###=== === +++ === === +++ === === +++ === ===
 # Purpose : Munge Milne Inlet narwhal data for LGL / Baffinland 
 #  Notes : 
-#  1) Your main directory will differ. See 'base.dir' variable below to edit that path to match your system
+#  1) Your main directory will differ. See 'base.dir' variable below and edit that path to match your project directory
 #  2) POSIXct is a class for representing calendar dates and times (these must be input in a strictly decreasing unambigous order, i.e. "YYYY-MM-DD HH:MM:SS")
 #  3) These data are also known as "Relative Abundance and Distribution" (RAD) data 
 #  4) Manually added a column in spreadsheet with LargeVess.Trans.ID (makes it easier to pull out start and stop times for large vessel transits)
 #====== +++ === === +++ === === +++ === ===
-library(plyr) # Hadley Wickham's "Plier" package for common tasks (e.g. summarizing) with data.frames
-# library(dplyr) # I think this might be an updated version of the plyr package?
-library(ggplot2)
-library(lubridate) # useful alternative functions for working with standard POSIXct format
+load.packages = function(){
+  library(plyr) # Hadley Wickham's "Plier" package for splitting data.frames and applying functions to each subset  
+  library(dplyr) # Plyr 2.0 -- more functions, and faster operations
+  library(lubridate) # Package with handy functions for working with dates and times
+  library(reshape)
+  library(reshape2)  # Wickham's package that, with respect to data.frames, melts (long format) and casts (wide format). Google it.
+  library(ggplot2)  # Plotting
+}
+
+load.packages()
 
 # Some initializations
 rm(list=ls()) # clear leftovers from previous workspace
 if (getOption("stringsAsFactors")) options(stringsAsFactors = FALSE) # set global option, don't want strings read as factors
 
+# Initialize working directory for this session
+base.dir = "~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014" # TODO: Make the directory code more flexible for other machines
+# paste("", "", sep = "/") # If you're using R running MS Windows OS, I believe you'll need to change sep = "//" (or maybe try "\\")
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/TideData.MilneNarwhal.2014.RData") # Load TIDE workspace
+setwd(base.dir) # Set working directory for data
+load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") #Debugging
 
-# Read data
-setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data
+# Read data 
+# TODO 
+# Eventually can move this to another more general script, 
+#  that loads and processes data (calling the functions in this script)
 dfile = "2014.milne.inlet.narwhal.csv" # 2014 RAD data file, saved as comma delimited
 dat2014 = read.csv(file = dfile, header = TRUE, as.is = TRUE, na.strings = c("NA", "x", "X")) # Read data file 
 
@@ -35,7 +48,7 @@ dat2014 = read.csv(file = dfile, header = TRUE, as.is = TRUE, na.strings = c("NA
 as.numeric.factor <- function(x) {as.numeric(levels(x))[x]} 
 
 #====== +++ === === +++ === === +++ === ===
-# Clean up some typos
+# Clean up some known typos
 #====== +++ === === +++ === === +++ === ===
 clean.typos = function(dat){
   substratum.typos.ii = which(dat$SubStratum == "13") 
@@ -48,13 +61,14 @@ clean.typos = function(dat){
   return(dat)
 }
 
-dat2014 = clean.typos(dat2014)
-
 #====== +++ === === +++ === === +++ === ===
 # Extract Stratum ("A", "B", "C", etc) and Substratum Number ("1", "2", "3", etc) from Substratum (e.g. A1, A2, A3, B1, B2, etc.)
 #====== +++ === === +++ === === +++ === ===
-dat2014$Stratum = substring(dat2014$SubStratum, first = 1, last = 1) # Create a vector with Stratum from SubStratum vector
-dat2014$SubStratum.num = substring(dat2014$SubStratum, first = 2, last = 2) # Create a vector with SubStratum.num from SubStratum vector
+extract.stratum = function(dat){
+  dat$Stratum = substring(dat$SubStratum, first = 1, last = 1) # Create a vector with Stratum from SubStratum vector
+  dat$SubStratum.num = substring(dat$SubStratum, first = 2, last = 2) # Create a vector with SubStratum.num from SubStratum vector
+  return(dat)
+}
 
 #====== +++ === === +++ === === +++ === ===
 # Convert Date and Time into POSIXct class format
@@ -63,17 +77,17 @@ dat2014$SubStratum.num = substring(dat2014$SubStratum, first = 2, last = 2) # Cr
 #====== +++ === === +++ === === +++ === ===
 convert.datetime = function(dat){
 # dat is a data.frame
-  if(! "datetime" %in% names(dat)){ # create a concatinated datetime column if it does not already exist
+# if datetime is not already a column in the data.frame, create a concatinated datetime column
+  if(! "datetime" %in% names(dat)){ 
     dat$datetime = with(dat, paste(Date, Time)) 
     dat$datetime = as.POSIXct(dat$datetime) # Convert DateTime to POSIXct class
   } 
+
   dat$datetime = ymd_hms(dat$datetime) # perhaps redundant, but this conversion is for 'lubridate'. POSIXct might be sufficient.
   dat$datetime = force_tz(time = dat$datetime, tzone = "America/Iqaluit") # change from default time zone to EDT, but don't change time
+  
   return(dat)  
 }
-
-dat2014 = convert.datetime(dat2014)
-str(dat2014)
 
 #====== +++ === === +++ === === +++ === ===
 # Create a sequence of Date/Times, from the start of the season to the end of the season:
@@ -91,7 +105,7 @@ create.long.seq.datetime = function(dat){
   return(half.hourly.timestamps)
 }
 
-half.hourly.timestamps.2014 = create.long.seq.datetime(dat2014)
+half.hourly.timestamps.2014 = create.long.seq.datetime(dat2014) # Consider moving this function call to Plotting Script
 
 #====== +++ === === +++ === === +++ === ===
 # Add a column to data.frame, assigning TRUE or FALSE to vessel count
@@ -103,12 +117,6 @@ assign.vessel.boolean = function(dat){
   dat$Vessel.related.count[Vessel.related.count.ii] = TRUE  # fill column  
   return(dat)
 }
-
-# dat2014$Vessel.related.count = rep(FALSE, nrow(dat2014)) # create dummy column to be filled below
-# Vessel.related.count.ii = which(dat2014$CountType %in% c("PRE", "C", "POST")) # which CountType records are "PRE", "C" or "POST"
-# dat2014$Vessel.related.count[Vessel.related.count.ii] = TRUE  # fill column
-
-# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Make a column which assigns an ID number for each count (a single day may have multiple counts)
@@ -125,7 +133,13 @@ assign.count.ids = function(dat.df){
   return(dat.df)
 }
 
-dat2014 = assign.count.ids(dat2014)
+#====== +++ === === +++ === === +++ === ===
+# Assign a column with results of a group level filter on sightability -- not currently used
+#====== +++ === === +++ === === +++ === ===
+# dat2014$include.group = rep(FALSE, nrow(dat2014))
+# include.ii = which(dat2014$Sightability %in% c("G", "E"))
+# dat2014$include.group[include.ii] = TRUE
+# unique(dat2014$include.group) # check
 
 #====== +++ === === +++ === === +++ === ===
 # Designate survey.counts for Inclusion:
@@ -135,16 +149,6 @@ dat2014 = assign.count.ids(dat2014)
 #  Note also, that in addition to "P" for poor, if no attempt at a count was made for a sub-stratum (e.g. due to fog)
 #    then those were entered as "x" (read into R as "NA"), so those counts with any "NA" or "P" will be excluded.
 #====== +++ === === +++ === === +++ === ===
-dat2014$include.group = rep(FALSE, nrow(dat2014))
-include.ii = which(dat2014$Sightability %in% c("G", "E"))
-dat2014$include.group[include.ii] = TRUE
-unique(dat2014$include.group) # check
-
-# write.csv(x = dat2014, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
-
-unique(dat2014$Count.id[which(is.na(dat2014$Sightability))]) # check to see which count.id's had NA's for no effort (due to fog, etc.)
-unique(dat2014$Count.id[which(dat2014$Sightability == "P")]) # check to see which count.id's had P's for Poor sightability conditions
-
 CountInclude = function(sightability){
   # Does this sub-stratum count meet the criteria of having all sub-stratum observed during Good or Excellent conditions?
   # 'sightability' here is a vector containing a code ("P", "G", "E", or NA) for each sub-stratum in a given count 
@@ -155,28 +159,19 @@ CountInclude = function(sightability){
   return(include.count)
 }
 
-# counts.to.include.sub = ddply(dat2014, .(Count.id, SubStratum), summarise, 
-#                           Include.count = CountInclude(Sightability),
-#                           datetime = unique(datetime)) 
-
-counts.to.include.stratum = ddply(dat2014, .(Count.id, Stratum), summarise, Include.stratum.count = CountInclude(Sightability)) #datetime = unique(datetime)
-head(counts.to.include.stratum) # check
-nrow(dat2014); nrow(counts.to.include.stratum)
-
-# write.csv(x = counts.to.include.stratum, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
-
-# dat2014 = merge(x = dat2014, y = counts.to.include, by.x = "Count.id", by.y = "Count.id") # expand from concise counts.to.include to full length column in data.frame 
-
-# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-dat2014 = join(x = dat2014, y = counts.to.include.stratum, by = c("Count.id", "Stratum")) # expand from concise counts.to.include to full length column in data.frame 
-
-# write.csv(x = dat2014, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
+assign.strat.sight.2014 = function(dat){
+  counts.to.include.stratum = ddply(dat, .(Count.id, Stratum), summarise, 
+                                    Include.stratum.count = CountInclude(Sightability)) # Passes Sightability for each sub-stratum in Stratum
+  
+  # Expand from concise counts.to.include to full length column in data.frame 
+  dat = join(x = dat, y = counts.to.include.stratum, by = c("Count.id", "Stratum"))   
+  
+  return(dat)
+}
 
 #====== +++ === === +++ === === +++ === ===
 # Rounding 'datetime' (class POSIXct) to nearest hour
 #  Do this with just the hour (no date) and with datetime
-#   TODO: Make this into a generic function that can be called on non-2014 data -- possibly add functionality to 'convert.datetime()' function
 #====== +++ === === +++ === === +++ === ===
 round.to.nearest.hr = function(dat){
   rounded.hour = dat$datetime # create a new column that will contain datetime rounded to the nearest hour 
@@ -186,24 +181,8 @@ round.to.nearest.hr = function(dat){
   datetime.rounded.to.hr = dat$datetime
   datetime.rounded.to.hr = round_date(datetime.rounded.to.hr, unit = "hour") # rounds to nearest hour
   dat$datetime.rounded.to.hr = datetime.rounded.to.hr # append the rounded hours to data.frame  
-}
-
-dat2014 = round.to.nearest.hr(dat2014)
-
-# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-#====== +++ === === +++ === === +++ === ===
-# Return decimal hour (from datetime rounded to nearest half hour)
-#====== +++ === === +++ === === +++ === ===
-return.dec.hour = function(dat){
-#  uses lubridate  
-  dec.hour = ymd_hms(dat$datetime.nearest.half.hr)
-  dec.hour = hour(dec.hour) + minute(dec.hour)/60 + second(dec.hour)/3600
-  dat$dec.hour = dec.hour
   return(dat)
 }
-
-dat2014 = return.dec.hour(dat2014)
 
 #====== +++ === === +++ === === +++ === ===
 # Rounding 'datetime' (class POSIXct) to nearest half hour 
@@ -214,11 +193,6 @@ round.to.nearest.half.hr = function(dat){
   minute(dat$datetime.nearest.half.hr) = round(minute(dat$datetime.nearest.half.hr)/30)*30 # round to nearest half hour
   return(dat)
 }
-
-dat2014 = round.to.nearest.half.hr(dat2014)
-
-# dat2014$datetime.nearest.half.hr = dat2014$datetime
-# minute(dat2014$datetime.nearest.half.hr) = round(minute(dat2014$datetime.nearest.half.hr)/30)*30 # round to nearest half hour
 
 #====== +++ === === +++ === === +++ === ===
 # Rounding 'datetime' (class POSIXct) to nearest five minute (to align with tide data, which are every 5 minutes)
@@ -231,22 +205,14 @@ round.to.nearest.five.min = function(dat){
   return(dat)
 }
 
-dat2014 = round.to.nearest.five.min(dat2014)
-
-# dat2014$datetime.rounded.to.five.min = dat2014$datetime
-# minute(dat2014$datetime.rounded.to.five.min) = round(minute(dat2014$datetime.rounded.to.five.min)/5)*5 # round to nearest five minute
-
-# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 #====== +++ === === +++ === === +++ === ===
-# Add column with decimal hour:min
+# Add column with decimal form of hour:min
 #====== +++ === === +++ === === +++ === ===
 calc.dec.hour = function(dat){
   dat$dec.hour = ymd_hms(dat$datetime.nearest.half.hr)  
   dat$dec.hour = hour(dat$dec.hour) + minute(dat$dec.hour)/60 + second(dat$dec.hour)/3600
   return(dat)
 }
-
-dat2014 = calc.dec.hour(dat2014)
 
 #====== +++ === === +++ === === +++ === ===
 # Add column with Julian date
@@ -257,7 +223,62 @@ calc.julian.date = function(dat){
   return(dat)
 }
 
-dat2014 = calc.julian.date(dat2014)
+#====== +++ === === +++ === === +++ === ===
+# Wrapper function for calls to munge dates and times, and to assign Count.id
+#====== +++ === === +++ === === +++ === ===
+do.dates.and.ids = function(dat){
+# Wrapper function for calls to munge dates and times, and to assign Count.id
+  dat$Time = ifelse("StartTime" %in% names(dat), dat$StartTime, dat$Time )
+  dat = convert.datetime(dat)  # munge datetimes (function is defined the 'MilneNarwhal-Munging2014Data.R' script)
+  dat = round.to.nearest.hr(dat) # returns a column with time rounded to nearest hour
+  dat = round.to.nearest.half.hr(dat) # returns a column with time rounded to nearest half-hour
+  dat = round.to.nearest.five.min(dat) # returns a column with time rounded to nearest five minutes
+  dat = calc.dec.hour(dat) # returns a column with decimal hour
+  dat = calc.julian.date(dat) # returns a column with julian date
+  dat = assign.count.ids(dat)  # assign id numbers for each count  
+  return(dat)
+}
+
+#====== +++ === === +++ === === +++ === ===
+# Add a column with a factor for GroupSize. Two levels: (1) ZeroCount and (2) PositiveCount
+#====== +++ === === +++ === === +++ === ===
+factor.group.size = function(dat){
+  dat$GroupSizeLevel = rep(NA, nrow(dat2014))
+  dat$GroupSizeLevel[which(dat$GroupSize == 0)] = "ZeroCount"
+  dat$GroupSizeLevel[which(dat$GroupSize > 0)] = "PositiveCount"
+  return(dat)
+}
+
+#====== +++ === === +++ === === +++ === ===
+# Merge tide data into RAD count data.frame
+#  Not sure if names in 2013 tide data are consistent, so naming this specifically for dat2014
+#====== +++ === === +++ === === +++ === ===
+merge.2014.dat.tides = function(dat, dat.tides){ 
+  dat.tides$datetime = as.POSIXct(dat.tides$datetime) # make sure datetime class is consistent with main data.frame's
+  
+  # just get the columns of tide data that are desired for merged data.frame
+  dat.tides.2014.subset = subset(dat.tides, select = c(datetime, Elevation, highlow, delta, risingfalling, tidestate))
+  dat = merge(x = dat, y = dat.tides.2014.subset, by.x = "datetime.rounded.to.five.min", by.y = "datetime")
+  return(dat)
+  # write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check  
+}
+
+#====== +++ === === +++ === === +++ === ===
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#====== +++ === === +++ === === +++ === ===
+dat2014 = read.csv(file = dfile, header = TRUE, as.is = TRUE, na.strings = c("NA", "x", "X")) # Read data file 
+dat2014 = clean.typos(dat2014)
+dat2014 = extract.stratum(dat2014) 
+dat2014 = do.dates.and.ids(dat2014) # Debugging
+dat2014 = assign.vessel.boolean(dat2014)
+dat2014 = factor.group.size(dat2014)
+dat2014 = merge.2014.dat.tides(dat2014, dat.tides.2014)
+dat2014 = assign.strat.sight.2014(dat2014)
+
+#====== +++ === === +++ === === +++ === ===
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#====== +++ === === +++ === === +++ === ===
+
 
 #====== +++ === === +++ === === +++ === ===
 # Extract start and end times for each vessel count and create a new data.frame with those
@@ -280,25 +301,6 @@ start.time = with_tz(start.time, tzone = tz(dat2014$datetime)) # force time zone
 stop.time = with_tz(stop.time, tzone = tz(dat2014$datetime))
 
 large.vess.times = data.frame(large.vess.transit, start.time, stop.time)
-
-#====== +++ === === +++ === === +++ === ===
-# Merge tide data into RAD count data.frame
-#====== +++ === === +++ === === +++ === ===
-dat.tides.2014$datetime = as.POSIXct(dat.tides.2014$datetime) # make sure datetime class is consistent with main data.frame's
-
-# just get the columns of tide data that are desired for merged data.frame
-dat.tides.2014.subset = subset(dat.tides.2014, select = c(datetime, Elevation, highlow, delta, risingfalling, tidestate))
-
-dat2014 = merge(x = dat2014, y = dat.tides.2014.subset, by.x = "datetime.rounded.to.five.min", by.y = "datetime")
-
-# write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-#====== +++ === === +++ === === +++ === ===
-# Add a column with a factor for GroupSize. Two levels: (1) ZeroCount and (2) PositiveCount
-#====== +++ === === +++ === === +++ === ===
-dat2014$GroupSizeLevel = rep(NA, nrow(dat2014))
-dat2014$GroupSizeLevel[which(dat2014$GroupSize == 0)] = "ZeroCount"
-dat2014$GroupSizeLevel[which(dat2014$GroupSize > 0)] = "PositiveCount"
 
 
 #====== +++ === === +++ === === +++ === ===
