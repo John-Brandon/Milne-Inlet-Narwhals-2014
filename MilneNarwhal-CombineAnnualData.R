@@ -38,8 +38,9 @@ dat2013 = read.csv(file = dfile2013, header = TRUE, as.is = TRUE, na.strings = c
 #   e.g. not all stratum surveyed (missing counts) and environmental data not recorded for each stratum during first few counts.
 #====== +++ === === +++ === === +++ === ===
 filter.sight = function(dat){
-# filter out counts if any stratum is in (i) Poor sightability or (ii) Sightability was not recorded, i.e. NA (when rain).
 # This is a strict version of filtering; if only one stratum doesn't meet criteria, that count is ignored across all strata  
+# filter out counts if any stratum is in (i) Poor sightability or (ii) Sightability was not recorded, i.e. NA (when rain).
+
 
   table_sight_countid = with(dat, table(Sightability, Count.id, useNA = "ifany"))
   table_sight_countid = as.data.frame(table_sight_countid)
@@ -60,25 +61,14 @@ filter.sight = function(dat){
 
 #====== +++ === === +++ === === +++ === ===
 # 2013
-# Call functions to munge
+# Call functions to munge and then filter
 #====== +++ === === +++ === === +++ === ===
 dat2013 = do.dates.and.ids(dat2013)
 dat2013 = assign.vessel.boolean(dat2013)
 dat2013 = factor.group.size(dat2013)
-str(dat2013) # Debugging
-
-dat2014 = assign.strat.sight.2014(dat2014)
+dat2013 = assign.strat.sight.2014(dat2013)
 
 filtered.dat2013 = filter.sight(dat2013) # filter sightability, returns only those counts entirely in Good or Excellence (no P or NA)
-filtered.dat2013 = assign.vessel.boolean(filtered.dat2013) # assign vessel count boolean (TRUE if count related to vessel)
-with(filtered.dat2013, unique(Count.id))
-str(filtered.dat2013)
-
-write.csv(filtered.dat2013, "foo6.csv"); system("open foo6.csv") # check
-
-
-str(dat2013)
-unique(dat2013$Count.id)
 
 # Have a look at Sightability and SeaState
 foo.ii = with(dat2013, which(SeaState > 2 & Sightability %in% c("G", "E")))

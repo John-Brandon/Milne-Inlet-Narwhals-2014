@@ -269,6 +269,7 @@ merge.2014.dat.tides = function(dat, dat.tides){
 # Get the data and get it in shape. This is where the magic happens. 
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #====== +++ === === +++ === === +++ === ===
+
 dat2014 = read.csv(file = dfile, header = TRUE, as.is = TRUE, na.strings = c("NA", "x", "X")) # Read data file 
 dat2014 = clean.typos(dat2014)
 dat2014 = extract.stratum(dat2014) 
