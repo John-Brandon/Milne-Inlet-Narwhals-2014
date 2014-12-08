@@ -121,16 +121,16 @@ assign.vessel.boolean = function(dat){
 #====== +++ === === +++ === === +++ === ===
 # Make a column which assigns an ID number for each count (a single day may have multiple counts)
 #====== +++ === === +++ === === +++ === ===
-assign.count.ids = function(dat.df){
-  count.id = seq(from = 1, to = length(unique(dat.df$datetime)))
+assign.count.ids = function(dat){
+  count.id = seq(from = 1, to = length(unique(dat$datetime)))
   ii = NULL
-  dat.df$Count.id = rep(-99, nrow(dat.df))
-  for(ii in 1:length(unique(dat.df$datetime))){ # probably a more elegant way to do this, rather than a loop.
+  dat$Count.id = rep(-99, nrow(dat))
+  for(ii in 1:length(unique(dat$datetime))){ # probably a more elegant way to do this, rather than a loop.
     rec.numbers = NULL
-    rec.numbers = which(dat.df$datetime == unique(dat.df$datetime)[ii])  
-    dat.df$Count.id[rec.numbers] = count.id[ii]
+    rec.numbers = which(dat$datetime == unique(dat$datetime)[ii])  
+    dat$Count.id[rec.numbers] = count.id[ii]
   }
-  return(dat.df)
+  return(dat)
 }
 
 #====== +++ === === +++ === === +++ === ===
@@ -228,7 +228,7 @@ calc.julian.date = function(dat){
 #====== +++ === === +++ === === +++ === ===
 do.dates.and.ids = function(dat){
 # Wrapper function for calls to munge dates and times, and to assign Count.id
-  dat$Time = ifelse("StartTime" %in% names(dat), dat$StartTime, dat$Time )
+  if("StartTime" %in% names(dat)) dat$Time = dat$StartTime # 2013 data labeled differently
   dat = convert.datetime(dat)  # munge datetimes (function is defined the 'MilneNarwhal-Munging2014Data.R' script)
   dat = round.to.nearest.hr(dat) # returns a column with time rounded to nearest hour
   dat = round.to.nearest.half.hr(dat) # returns a column with time rounded to nearest half-hour
@@ -243,7 +243,7 @@ do.dates.and.ids = function(dat){
 # Add a column with a factor for GroupSize. Two levels: (1) ZeroCount and (2) PositiveCount
 #====== +++ === === +++ === === +++ === ===
 factor.group.size = function(dat){
-  dat$GroupSizeLevel = rep(NA, nrow(dat2014))
+  dat$GroupSizeLevel = rep(NA, nrow(dat))
   dat$GroupSizeLevel[which(dat$GroupSize == 0)] = "ZeroCount"
   dat$GroupSizeLevel[which(dat$GroupSize > 0)] = "PositiveCount"
   return(dat)
@@ -263,18 +263,22 @@ merge.2014.dat.tides = function(dat, dat.tides){
   # write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check  
 }
 
+
 #====== +++ === === +++ === === +++ === ===
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Get the data and get it in shape. This is where the magic happens. 
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #====== +++ === === +++ === === +++ === ===
 dat2014 = read.csv(file = dfile, header = TRUE, as.is = TRUE, na.strings = c("NA", "x", "X")) # Read data file 
 dat2014 = clean.typos(dat2014)
 dat2014 = extract.stratum(dat2014) 
-dat2014 = do.dates.and.ids(dat2014) # Debugging
+dat2014 = do.dates.and.ids(dat2014) 
 dat2014 = assign.vessel.boolean(dat2014)
 dat2014 = factor.group.size(dat2014)
 dat2014 = merge.2014.dat.tides(dat2014, dat.tides.2014)
 dat2014 = assign.strat.sight.2014(dat2014)
 
+# write.csv(x = dat2014, file = "foo4.csv", row.names = FALSE); system("open foo4.csv") # check
 #====== +++ === === +++ === === +++ === ===
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #====== +++ === === +++ === === +++ === ===
@@ -284,29 +288,36 @@ dat2014 = assign.strat.sight.2014(dat2014)
 # Extract start and end times for each vessel count and create a new data.frame with those
 #  New data.frame will be used for plotting gray bars during vessel passage on time series plot of counts 
 #====== +++ === === +++ === === +++ === ===
-names(dat2014)
-unique(dat2014$CountType)
-unique(dat2014$LargeVess.Trans.ID)
-large.vess.count = length(which(!is.na(unique(dat2014$LargeVess.Trans.ID)))) # four large vess transits during counts in 2014
-
-large.vess.transit = NULL; start.time = as.POSIXct(NA, tz = ""); stop.time = as.POSIXct(NA,tz = tz(dat2014$datetime))
-for(ii in 1:large.vess.count){
-  large.vess.ii = which(dat2014$LargeVess.Trans.ID == ii)
-  large.vess.transit[ii] = ii
-  start.time[ii] = min(dat2014$datetime.nearest.half.hr[large.vess.ii]) # large.vess.start.stop
-  stop.time[ii] = max(dat2014$datetime.nearest.half.hr[large.vess.ii]) 
+extract.vessel.transit.times = function(dat){
+  
+  large.vess.count = length(which(!is.na(unique(dat$LargeVess.Trans.ID)))) # four large vess transits during counts in 2014  
+  
+  large.vess.transit = NULL
+  start.time = as.POSIXct(NA, tz = "") # why tz inconsistent with line below??
+  stop.time = as.POSIXct(NA, tz = tz(dat$datetime))
+  
+  for(ii in 1:large.vess.count){ 
+    large.vess.ii = which(dat$LargeVess.Trans.ID == ii)
+    large.vess.transit[ii] = ii
+    start.time[ii] = min(dat$datetime.nearest.half.hr[large.vess.ii]) # large.vess.start.stop
+    stop.time[ii] = max(dat$datetime.nearest.half.hr[large.vess.ii]) 
+  }
+  
+  start.time = with_tz(start.time, tzone = tz(dat$datetime)) # force time zone to equal survey data tz
+  stop.time = with_tz(stop.time, tzone = tz(dat$datetime)) # requires lubridate package
+  
+  large.vess.times = data.frame(large.vess.transit, start.time, stop.time)
+  
+  return(large.vess.times)
 }
-library(lubridate)
-start.time = with_tz(start.time, tzone = tz(dat2014$datetime)) # force time zone to equal survey data tz
-stop.time = with_tz(stop.time, tzone = tz(dat2014$datetime))
 
-large.vess.times = data.frame(large.vess.transit, start.time, stop.time)
-
+large.vess.times = extract.vessel.transit.times(dat2014)
 
 #====== +++ === === +++ === === +++ === ===
 # Create another data.frame, with a subset of the counts which meet sightability criteria
 #====== +++ === === +++ === === +++ === ===
-dat2014.include = subset(dat2014, include.group == TRUE)
+# dat2014.include = subset(dat2014, include.group == TRUE)
+# dat2014.include = subset(dat2014, include.stratum.count == TRUE)
 
 #====== +++ === === +++ === === +++ === ===
 # Save workspace image

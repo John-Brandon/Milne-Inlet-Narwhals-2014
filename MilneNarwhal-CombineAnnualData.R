@@ -13,8 +13,6 @@
 #  3) Loads existing workspace, that contains 2014 data (dat2014)
 #  4) Loads existing workspace, that contains munged 2013 and 2014 tide data
 #====== +++ === === +++ === === +++ === ===
-
-
 rm(list=ls()) # clear leftovers from previous workspace
 
 # Load workspace with munged 2014 data
@@ -23,7 +21,7 @@ load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal
 # Load workspace with munged 2013 AND 2014 tide data
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/TideData.MilneNarwhal.2014.RData")
 
-# Load libraries
+# Load packages, this list is defined in Munging2014Data script
 load.packages()
 
 #====== +++ === === +++ === === +++ === ===
@@ -34,25 +32,15 @@ dfile2013 = "2013.milne.inlet.narwhal.csv" # 2014 RAD data file, saved as comma 
 dat2013 = read.csv(file = dfile2013, header = TRUE, as.is = TRUE, na.strings = c("NA", "x", "X")) # Read data file 
 
 #====== +++ === === +++ === === +++ === ===
-# Join dat2014 and dat2013 data.frames
-#====== +++ === === +++ === === +++ === ===
-intersect(names(dat2013), names(dat2014))
-setdiff(names(dat2013), names(dat2014)) # names of column vectors that are found in dat2013 but not dat2014
-setdiff(names(dat2014), names(dat2013)) # names of column vectors that are found in dat2014 but not dat2013
-
-dat = join(dat2014, dat2013)
-setdiff(names(dat), names(dat2014)) # names of column vectors that are found in dat but not dat2014
-setdiff(names(dat), names(dat2013)) # names of column vectors that are found in dat but not dat2013
-
-#====== +++ === === +++ === === +++ === ===
-# Munge 2013 RAD data -- follow Scott Raborn's "filters" from 2013 report
+# Follow Scott Raborn's "filters" from 2013 report
 #  After filters, there were 5 days that met criteria for inclusion in model: 13, 14, 21, 23 and 26 Aug (see Table D-1 of 2013 report)
 #  Note: 2013 was the Pilot Study year. So, there was some on the fly learning, and data collection protocol evolved in field.
 #   e.g. not all stratum surveyed (missing counts) and environmental data not recorded for each stratum during first few counts.
 #====== +++ === === +++ === === +++ === ===
 filter.sight = function(dat){
-# filter out counts if any part of a count is in (i) Poor sightability or (ii) Sightability was not recorded, i.e. NA (when rain).
+# filter out counts if any stratum is in (i) Poor sightability or (ii) Sightability was not recorded, i.e. NA (when rain).
 # This is a strict version of filtering; if only one stratum doesn't meet criteria, that count is ignored across all strata  
+
   table_sight_countid = with(dat, table(Sightability, Count.id, useNA = "ifany"))
   table_sight_countid = as.data.frame(table_sight_countid)
   
@@ -70,25 +58,63 @@ filter.sight = function(dat){
   return(dat)
 }
 
-# Try with dat2014
-nrow(dat2014)
-str(dat2014)
-dat2014 = filter.sight(dat2014)
-nrow(dat2014) 
+#====== +++ === === +++ === === +++ === ===
+# 2013
+# Call functions to munge
+#====== +++ === === +++ === === +++ === ===
+dat2013 = do.dates.and.ids(dat2013)
+dat2013 = assign.vessel.boolean(dat2013)
+dat2013 = factor.group.size(dat2013)
+str(dat2013) # Debugging
 
-# Filter dat2013 
-filtered.dat = do.dates.and.ids(dat2013)
-filtered.dat = filter.sight(filtered.dat) # filter sightability, returns only those counts entirely in Good or Excellence (no P or NA)
-filtered.dat = assign.vessel.boolean(filtered.dat) # assign vessel count boolean (TRUE if count related to vessel)
+dat2014 = assign.strat.sight.2014(dat2014)
 
-str(filtered.dat)
-write.csv(filtered.dat, "foo.csv"); system("open foo.csv") # check
+filtered.dat2013 = filter.sight(dat2013) # filter sightability, returns only those counts entirely in Good or Excellence (no P or NA)
+filtered.dat2013 = assign.vessel.boolean(filtered.dat2013) # assign vessel count boolean (TRUE if count related to vessel)
+with(filtered.dat2013, unique(Count.id))
+str(filtered.dat2013)
 
-View(tot.counts.2013)
+write.csv(filtered.dat2013, "foo6.csv"); system("open foo6.csv") # check
 
-View(filtered.dat2013)
+
+str(dat2013)
+unique(dat2013$Count.id)
+
+# Have a look at Sightability and SeaState
+foo.ii = with(dat2013, which(SeaState > 2 & Sightability %in% c("G", "E")))
+dat2013$Count.id[foo.ii]
+
+#====== +++ === === +++ === === +++ === ===
+# 2014
+#  'Munging2014Data' script already calls functions like 'do.dates.and.ids'
+#  Loading 'MilneNarwhal.2014.RData' loads in a munged, but unfiltered 2014 data.frame
+#   So, just need to filter and continue with processing at this stage
+#====== +++ === === +++ === === +++ === ===
+dat.foo = filter.sight(dat2014)
+
+
+tot.counts.2014 = ddply(dat.foo, .(Count.id, Stratum), summarise, 
+                        value = sum(GroupSize, na.rm = TRUE), 
+                        CountType = unique(CountType),
+                        #SeaState = unique(SeaState), 
+                        datetime = unique(datetime)) # uses 'plyr' package, could also use function aggregate
+cast(tot.counts.2014, Count.id + VesselPresence + datetime ~ Stratum)
+View(tot.counts.2014)
+
+
+#====== +++ === === +++ === === +++ === ===
+# Join dat2014 and dat2013 data.frames
+#====== +++ === === +++ === === +++ === ===
+intersect(names(dat2013), names(dat2014))
+setdiff(names(dat2013), names(dat2014)) # names of column vectors that are found in dat2013 but not dat2014
+setdiff(names(dat2014), names(dat2013)) # names of column vectors that are found in dat2014 but not dat2013
+
+dat = join(dat2014, dat2013)
+setdiff(names(dat), names(dat2014)) # names of column vectors that are found in dat but not dat2014
+setdiff(names(dat), names(dat2013)) # names of column vectors that are found in dat but not dat2013
+
 # filtered.dat2013 = subset(dat2013, Sightability %in% c("G", "E")) # filter out any sighting conditions that are not Good - Excellent
-str(filtered.dat2013) # check
+# str(filtered.dat2013) # check
 
 # dates.to.remove = c("2013-08-10", "2013-08-11", "2013-08-12", "2013-08-17", "2013-08-18", "2013-08-19", "2013-08-22", "2013-08-25")
 # filtered.dat2013 = subset(filtered.dat2013, ! Date %in% dates.to.remove) # filter dates
@@ -100,15 +126,20 @@ str(filtered.dat2013) # check
 # filtered.dat2013 = filtered.dat2013[-delete.ii,]
 # delete.ii = which(day(filtered.dat2013$datetime) == 26 & hour(filtered.dat2013$datetime) < 15)
 # filtered.dat2013 = filtered.dat2013[-delete.ii,]
-
 # View(filtered.dat2013)
+# tot.counts.2013 = ddply(filtered.dat2013, .(Count.id, Stratum), summarise, 
+#                         value = sum(GroupSize, na.rm = TRUE), 
+#                         VesselPresence = unique(WatchType),
+#                         SeaState = unique(SeaState), 
+#                         datetime = unique(datetime)) 
 
 # TODO: Combine annual data sets, filter, then run this to sum counts (if we want to model summed counts)
-tot.counts.2013 = ddply(filtered.dat2013, .(datetime, Stratum), summarise, 
+tot.counts.2013 = ddply(filtered.dat, .(Count.id, Stratum), summarise, 
                         value = sum(GroupSize, na.rm = TRUE), 
                         VesselPresence = unique(WatchType),
-                        SeaState = unique(SeaState)) # uses 'plyr' package, could also use function aggregate
-
+                        SeaState = unique(SeaState), 
+                        datetime = unique(datetime)) # uses 'plyr' package, could also use function aggregate
+cast(tot.counts.2013, Count.id + VesselPresence + datetime ~ Stratum)
 View(tot.counts.2013)
 
 # Plot raw counts by SeaState and add a GLM fit
@@ -135,6 +166,7 @@ View(dat.mat.2013)
 # Reference how this was carried out for 2014 tide data (using merge / join)
 #  think we'll need the dat.mat.2013$date.time.rounded.to.half.hour as an ID
 dat.mat.2013.foo = dat.mat.2013 %>% mutate(sum.count.with.na = A + B + C + D + E + F + G + H + I)
+
 # dat.mat.2013.foo = dat.mat.2013.foo %>% # SO WRONG
 #   mutate(sum.count.without.na = sum(!is.na(A) + !is.na(B) + 
 #                                       !is.na(C) + !is.na(D) + !is.na(E) + 
@@ -163,7 +195,7 @@ dir()
 ?model.matrix
 ?model.frame
 
-?gl
+?gl # generate levels
 dd <- data.frame(a = gl(3,4), b = gl(4,1,12)) # balanced 2-way
 dd
 options("contrasts")
