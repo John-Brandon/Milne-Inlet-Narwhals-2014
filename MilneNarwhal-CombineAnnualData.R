@@ -15,10 +15,10 @@
 #====== +++ === === +++ === === +++ === ===
 rm(list=ls()) # clear leftovers from previous workspace
 
-# Load workspace with munged 2014 data
+# Load workspace with Munged 2014 Data
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") 
 
-# Load workspace with munged 2013 AND 2014 tide data
+# Load workspace with munged 2013 AND 2014 Tide Data
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/TideData.MilneNarwhal.2014.RData")
 
 # Load packages, this list is defined in Munging2014Data script
@@ -60,19 +60,42 @@ filter.sight = function(dat){
 }
 
 #====== +++ === === +++ === === +++ === ===
-# 2013
-# Call functions to munge and then filter
+# Merge tide data into RAD count data.frame
+#  Not sure if names in 2013 tide data are consistent, so naming this specifically for dat2014
 #====== +++ === === +++ === === +++ === ===
+merge.2013.dat.tides = function(dat, dat.tides){ 
+  dat.tides$datetime = as.POSIXct(dat.tides$datetime) # make sure datetime class is consistent with main data.frame's
+  
+  # just get the columns of tide data that are desired for merged data.frame
+  dat.tides.2013.subset = subset(dat.tides, select = c(datetime, Elevation, highlow, delta, risingfalling, tidestate))
+  dat = merge(x = dat, y = dat.tides.2013.subset, by.x = "datetime.rounded.to.five.min", by.y = "datetime")
+  return(dat)
+  # write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check  
+}
+
 dat2013 = do.dates.and.ids(dat2013)
 dat2013 = assign.vessel.boolean(dat2013)
 dat2013 = factor.group.size(dat2013)
 dat2013 = assign.strat.sight.2014(dat2013)
+dat2013 = merge.2013.dat.tides(dat2013, dat.tides.2013) 
+
+str(dat2013)
+# dat2013 = rename(dat2013, CountType = WatchType) #Debugging
 
 filtered.dat2013 = filter.sight(dat2013) # filter sightability, returns only those counts entirely in Good or Excellence (no P or NA)
+#write.csv(filtered.dat2013, "foo10.csv"); system("open foo10.csv")
+
+tot.counts.2013 = ddply(filtered.dat2013, .(Count.id, Stratum), summarise, 
+                        value = sum(GroupSize, na.rm = TRUE), 
+                        CountType = unique(CountType),
+                        #SeaState = unique(SeaState), 
+                        datetime = unique(datetime)) # uses 'plyr' package, could also use function aggregate
+cast(tot.counts.2013, Count.id + CountType + datetime ~ Stratum)
 
 # Have a look at Sightability and SeaState
-foo.ii = with(dat2013, which(SeaState > 2 & Sightability %in% c("G", "E")))
-dat2013$Count.id[foo.ii]
+# foo.ii = with(filtered.dat2013, which(SeaState > 2 & Sightability %in% c("G", "E")))
+# length(foo.ii)
+# filtered.dat2013$Count.id[foo.ii]
 
 #====== +++ === === +++ === === +++ === ===
 # 2014
@@ -80,28 +103,55 @@ dat2013$Count.id[foo.ii]
 #  Loading 'MilneNarwhal.2014.RData' loads in a munged, but unfiltered 2014 data.frame
 #   So, just need to filter and continue with processing at this stage
 #====== +++ === === +++ === === +++ === ===
-dat.foo = filter.sight(dat2014)
+filtered.dat2014 = filter.sight(dat2014)
 
-
-tot.counts.2014 = ddply(dat.foo, .(Count.id, Stratum), summarise, 
+tot.counts.2014 = ddply(filtered.dat2014, .(Count.id, Stratum), summarise, 
                         value = sum(GroupSize, na.rm = TRUE), 
                         CountType = unique(CountType),
                         #SeaState = unique(SeaState), 
                         datetime = unique(datetime)) # uses 'plyr' package, could also use function aggregate
-cast(tot.counts.2014, Count.id + VesselPresence + datetime ~ Stratum)
-View(tot.counts.2014)
-
+cast(tot.counts.2014, Count.id + CountType + datetime ~ Stratum)
 
 #====== +++ === === +++ === === +++ === ===
-# Join dat2014 and dat2013 data.frames
+# Debugging merging
 #====== +++ === === +++ === === +++ === ===
-intersect(names(dat2013), names(dat2014))
-setdiff(names(dat2013), names(dat2014)) # names of column vectors that are found in dat2013 but not dat2014
-setdiff(names(dat2014), names(dat2013)) # names of column vectors that are found in dat2014 but not dat2013
+df.1<-data.frame(class=c(1,2,3), prob=c(0.5,0.7,0.3))
+df.2<-data.frame(object=c('A','B','D','F','C'), class=c(2,1,2,3,1))
+join(df.2, df.1, by = "class")
+#====== +++ === === +++ === === +++ === ===
+# Join filtered.dat2014 and filtered.dat2013 data.frames
+#====== +++ === === +++ === === +++ === ===
+intersect(names(filtered.dat2013), names(filtered.dat2014))
+setdiff(names(filtered.dat2014), names(filtered.dat2013)) # names of column vectors that are found in dat 2014 but not dat 2013
 
-dat = join(dat2014, dat2013)
-setdiff(names(dat), names(dat2014)) # names of column vectors that are found in dat but not dat2014
-setdiff(names(dat), names(dat2013)) # names of column vectors that are found in dat but not dat2013
+setdiff(names(filtered.dat2013), names(dat2014)) # names of column vectors that are found in dat2013 but not dat2014
+setdiff(names(dat2014), names(filtered.dat2013)) # names of column vectors that are found in dat2014 but not dat2013
+
+?merge
+filtered.dat.join = merge(filtered.dat2014, filtered.dat2013, all.x = TRUE)
+filtered.dat.join = rbind(filtered.dat2013, filtered.dat2014)
+with(filtered.dat.join, unique(datetime))
+str(filtered.dat.join)
+
+# filtered.dat2013 = tbl_dt(filtered.dat2013)
+# filtered.dat2014 = tbl_dt(filtered.dat2014)
+str(filtered.dat2014)
+filtered.dat.join = join(filtered.dat2014, filtered.dat2013)
+?join
+with(filtered.dat2013, unique(datetime))
+with(filtered.dat2014, unique(datetime))
+
+filtered.dat.join = join(filtered.dat2014, filtered.dat2013, by = "datetime")
+filtered.dat.join = join(filtered.dat2013, filtered.dat2014)
+
+
+tot.counts.join = ddply(filtered.dat.join, .(Count.id, Stratum), summarise, 
+                        value = sum(GroupSize, na.rm = TRUE), 
+                        CountType = unique(CountType),
+                        #SeaState = unique(SeaState), 
+                        datetime = unique(datetime)) # uses 'plyr' package, could also use function aggregate
+cast(tot.counts.join, Count.id + CountType + datetime ~ Stratum)
+
 
 # filtered.dat2013 = subset(dat2013, Sightability %in% c("G", "E")) # filter out any sighting conditions that are not Good - Excellent
 # str(filtered.dat2013) # check
