@@ -113,45 +113,51 @@ tot.counts.2014 = ddply(filtered.dat2014, .(Count.id, Stratum), summarise,
 cast(tot.counts.2014, Count.id + CountType + datetime ~ Stratum)
 
 #====== +++ === === +++ === === +++ === ===
-# Debugging merging
-#====== +++ === === +++ === === +++ === ===
-df.1<-data.frame(class=c(1,2,3), prob=c(0.5,0.7,0.3))
-df.2<-data.frame(object=c('A','B','D','F','C'), class=c(2,1,2,3,1))
-join(df.2, df.1, by = "class")
-#====== +++ === === +++ === === +++ === ===
 # Join filtered.dat2014 and filtered.dat2013 data.frames
 #====== +++ === === +++ === === +++ === ===
-intersect(names(filtered.dat2013), names(filtered.dat2014))
-setdiff(names(filtered.dat2014), names(filtered.dat2013)) # names of column vectors that are found in dat 2014 but not dat 2013
+create.missing.columns = function(dat, column.names){
+  tmp.df = matrix(nrow = nrow(dat), ncol = length(column.names)) 
+  tmp.df = as.data.frame(tmp.df)
+  names(tmp.df) = column.names
+  dat = cbind(dat, tmp.df)
+  return(dat)
+}
 
-setdiff(names(filtered.dat2013), names(dat2014)) # names of column vectors that are found in dat2013 but not dat2014
-setdiff(names(dat2014), names(filtered.dat2013)) # names of column vectors that are found in dat2014 but not dat2013
+columns.to.add.2013 = setdiff(names(filtered.dat2014), names(filtered.dat2013)) # names of column vectors that are found in dat 2014 but not dat 2013
+filtered.dat2013 = create.missing.columns(filtered.dat2013, columns.to.add.2013)
 
-?merge
-filtered.dat.join = merge(filtered.dat2014, filtered.dat2013, all.x = TRUE)
+columns.to.add.2014 = setdiff(names(filtered.dat2013), names(filtered.dat2014)) # names of column vectors that are found in dat 2013 but not dat 2014
+filtered.dat2014 = create.missing.columns(filtered.dat2014, columns.to.add.2014)
+
 filtered.dat.join = rbind(filtered.dat2013, filtered.dat2014)
-with(filtered.dat.join, unique(datetime))
+filtered.dat.join$Year = year(filtered.dat.join$datetime) # Create a column with Year
+filtered.dat.join$Count.id.long = with(filtered.dat.join, paste(Year, Count.id, sep="."))
 str(filtered.dat.join)
 
-# filtered.dat2013 = tbl_dt(filtered.dat2013)
-# filtered.dat2014 = tbl_dt(filtered.dat2014)
-str(filtered.dat2014)
-filtered.dat.join = join(filtered.dat2014, filtered.dat2013)
-?join
-with(filtered.dat2013, unique(datetime))
-with(filtered.dat2014, unique(datetime))
-
-filtered.dat.join = join(filtered.dat2014, filtered.dat2013, by = "datetime")
-filtered.dat.join = join(filtered.dat2013, filtered.dat2014)
-
-
-tot.counts.join = ddply(filtered.dat.join, .(Count.id, Stratum), summarise, 
+tot.counts.join = ddply(filtered.dat.join, .(Count.id.long, Stratum), summarise, 
                         value = sum(GroupSize, na.rm = TRUE), 
                         CountType = unique(CountType),
                         #SeaState = unique(SeaState), 
-                        datetime = unique(datetime)) # uses 'plyr' package, could also use function aggregate
-cast(tot.counts.join, Count.id + CountType + datetime ~ Stratum)
+                        datetime = unique(datetime), 
+                        hour = unique(dec.hour), 
+                        tide.height = unique(Elevation),
+                        tide.delta = unique(delta),
+                        tide.state = unique(tidestate),
+                        year = unique(Year)
+                        ) # uses 'plyr' package, could also use function aggregate
 
+mod.dat = cast(tot.counts.join, Count.id.long + CountType + datetime + year + hour + tide.height + tide.delta + tide.state ~ Stratum)
+mod.dat$total.count.abcdef = with(mod.dat, A + B + C + D + E + F)
+mod.dat$total.count.ghi = with(mod.dat, G + H + I)
+mod.dat$total.count = with(mod.dat, A + B + C + D + E + F + G + H + I)
+head(mod.dat, n=20)
+str(mod.dat)
+
+ggplot(data = mod.dat, aes(x = hour, y = tide.height)) + geom_point() + facet_grid(year ~ .)
+ggplot(data = mod.dat, aes(x = hour, y = tide.height, color = as.factor(year))) + geom_point() + scale_color_manual(values = c("red", "blue"))
+
+ggplot(data = mod.dat, aes(x = tide.delta, y = total.count)) + geom_point() + facet_grid(year ~ .)
+ggplot(data = mod.dat, aes(x = tide.delta, y = total.count.ghi)) + geom_point() + facet_grid(year ~ .)
 
 # filtered.dat2013 = subset(dat2013, Sightability %in% c("G", "E")) # filter out any sighting conditions that are not Good - Excellent
 # str(filtered.dat2013) # check
