@@ -29,9 +29,21 @@ setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working dire
 # Initialize some plottig parameters -- create custom plotting theme for ggplot2
 mytheme = theme_grey() + theme(axis.title.x = element_text(size = rel(1.75), vjust = 0.0), 
                                axis.title.y = element_text(size = rel(1.75), vjust = 1.0), axis.text = element_text(size = rel(1.5), colour = "black"),
-                               plot.title = element_text(size = rel(2.5))) # , plot.margin=unit(c(1,1,1,1),"cm")
+                               plot.title = element_text(size = rel(2.5)),
+                               legend.text = element_text(size=14), 
+                               legend.title = element_text(size = 14),
+                               strip.text.x = element_text(size = 14), 
+                               strip.text.y = element_text(size = 14))                               ) # , plot.margin=unit(c(1,1,1,1),"cm")
 
-
+mytheme_bw = theme_bw() + theme(axis.title.x = element_text(size = rel(1.75), vjust = 0.0), 
+                               axis.title.y = element_text(size = rel(1.75), vjust = 1.0), axis.text = element_text(size = rel(1.5), colour = "black"),
+                               plot.title = element_text(size = rel(2.5)),
+                               legend.text = element_text(size=14), 
+                               legend.title = element_text(size = 14),
+                               panel.grid.major = element_line(colour = "gray"),
+                               strip.text.x = element_text(size = 14), 
+                               strip.text.y = element_text(size = 14))
+                               #panel.grid.minor = element_line(colour = "gray")) # , plot.margin=unit(c(1,1,1,1),"cm")
 #====== +++ === === +++ === === +++ === ===
 # Histogram of total counts by strata 
 #  Note: tot.counts.strat are for all sighting conditions AND include periods when large vessels were associated with counts
@@ -47,21 +59,22 @@ ggplot(positive.counts.by.stratum, aes(x = TotalCount.without.na)) + geom_histog
 
 #====== +++ === === +++ === === +++ === ===
 # Histogram of group sizes in sub-strata
+#  NOTE: use of "origin" in geom_histogram()
 #====== +++ === === +++ === === +++ === ===
-g = ggplot(data = dat2014, aes(x = GroupSize)) 
+g = ggplot(data = filtered.dat2014.less.vessels, aes(x = GroupSize)) 
 g = g + geom_histogram(fill = "gray40", colour = "black", binwidth = 1, na.rm = TRUE, origin = -0.5)
 g = g + facet_grid(Stratum ~ SubStratum.num)
-g + xlim(c(-0.5, 6.5)) + ylab("Frequency")
+g + xlim(c(-0.5, 6.5)) + xlab("Group Size") + ylab("Frequency") + mytheme + scale_y_continuous(breaks = c(50, 150))
 
 #====== +++ === === +++ === === +++ === ===
 # Histogram of group sizes in Strata
 #  NOTE: use of "origin" in geom_histogram()
 #====== +++ === === +++ === === +++ === ===
-g = ggplot(data = dat2014, aes(x = GroupSize))
+g = ggplot(data = filtered.dat2014.less.vessels, aes(x = GroupSize))
 g = g + geom_histogram(fill = "gray40", colour = "black", binwidth = 1, na.rm = TRUE, origin = -0.50) # NOTE: origin
 g = g + facet_grid(Stratum ~ .) 
 # g = g + scale_x_discrete(breaks = 0:7)
-g + xlim(c(-0.5, 6.5)) + ylab("Frequency")
+g + xlim(c(-0.5, 6.5)) + xlab("Group Size") + ylab("Frequency") + mytheme + scale_y_continuous(breaks = c(200, 400))
 
 #====== +++ === === +++ === === +++ === ===
 # Histograms of (1) total and (2) mean counts by hour, over all strata

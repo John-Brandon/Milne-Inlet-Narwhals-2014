@@ -14,12 +14,7 @@
 #  3) 
 #  4) 
 #====== +++ === === +++ === === +++ === ===
-library(reshape)
-library(reshape2)
-library(plyr) # for manipulating data
-library(dplyr) 
-library(lubridate) # for working with times
-library(ggplot2) # for plotting
+load.packages() # loads a batch of packages -- should move these into .Rprofile
 
 # Set Options
 if (getOption("stringsAsFactors")) options(stringsAsFactors = FALSE) # set global option, don't want strings read as factors
@@ -29,7 +24,7 @@ rm(list = ls())
 base.dir = "~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014"
 fix.dfile = "FocalFollows_ByFix_2014.csv" # 2014 Focal Follows By Fix data, saved as comma delimited
 tracksummary.dfile = "FocalFollows_TrackSummary_2014.csv" # 2014 Focal Follows By Fix data, saved as comma delimited
-
+getwd()
 setwd(base.dir) # Set working directory for data
 
 # Read data files 
@@ -64,7 +59,85 @@ munge.follow.dat = function(file.name){
 }
 
 fixdat2014 = munge.follow.dat(fix.dfile)
+str(fixdat2014)
 View(fixdat2014)
+
+fixdat2014 = assign.groupcomp.known(fixdat2014)
+with(fixdat2014, unique(GroupFollow)); with(fixdat2014, length(unique(GroupFollow)))
+# write.csv(fixdat2014, "foo1.csv"); system("open foo1.csv") # check
+
+# If one of the fixes has a known GroupComp, then GroupCompKnown = TRUE
+#  TODO: Introduce a check here for unknown stage classes in any of the fixes -- which would imply the GroupComp is not strictly known
+#  TODO: Replace code in 'assign.groupcomp.known' function with ddply and join calls below
+# CompKnown = ddply(fixdat2014, .(GroupFollow), summarise, 
+#       GroupCompKnown = ifelse(any(GroupCompKnown), TRUE, FALSE))
+# 
+# foo2 = join(fixdat2014, CompKnown, by = "GroupFollow")
+# write.csv(foo2, "foo2.csv"); system("open foo2.csv") # check
+
+# Assign "Super Group" Type to each follow of known GroupComp
+
+#====== +++ === === +++ === === +++ === ===
+# Work on table with known group types
+#  Take shortcut that Tracking data (at least for 2014) has compiled GroupComps
+#====== +++ === === +++ === === +++ === ===
+trackdat2014 # names(trackdat2014)
+trackdat2014.keep = subset(trackdat2014, !is.na(TrackDuration)) # remove tracks without multiple fixes
+
+foo0 = subset(trackdat2014.keep, select = c(GroupFollow, Anthro, TrackDuration, 
+                                      YesTusk_A, YesTusk_J, 
+                                      YesTusk_U, NoTusk_U, 
+                                      NoTusk_A, NoTusk_J, 
+                                      NoTusk_C, NoTusk_U,
+                                      UTusk_A, UTusk_J, UTusk_U))
+foo0 
+
+foo1 = subset(trackdat2014.keep, select = c(YesTusk_A, YesTusk_J,  
+                                       YesTusk_U, NoTusk_U, 
+                                       NoTusk_A, NoTusk_J, 
+                                       NoTusk_C, 
+                                       UTusk_A, UTusk_J, 
+                                       UTusk_U))
+head(foo1)
+
+foo.known = subset(trackdat2014.keep, select = c(YesTusk_A, YesTusk_J,  
+                                                 NoTusk_A, NoTusk_J, 
+                                                 NoTusk_C))
+head(foo.known)
+foo.known$groupsize = rowSums(foo.known, na.rm = FALSE)
+foo.known = subset(foo.known, !is.na(groupsize)); nrow(foo.known)
+
+
+foo.known
+
+?subset
+?melt
+
+
+foo.test = foo.known[which(is.na(foo.known))]
+
+
+with(foo1, which(YesTusk_U < 1 & NoTusk_U < 1 & ))
+
+foo = subset(foo1, YesTusk_U | YesTusk_U < 1)
+
+ddply(foo0, .(GroupFollow))
+
+head(foo1)
+names(airquality) <- tolower(names(airquality))
+melt(airquality, id=c("month", "day"))
+names(ChickWeight) <- tolower(names(ChickWeight))
+foo1
+?subset
+foo = assign.supergroup.bits(trackdat2014)
+
+fix.groupcomp.known = subset(fixdat2014, GroupCompKnown)
+fix.groupcomp.known = subset(fix.groupcomp.known, LegTime>0)
+fix.groupcomp.known; nrow(fix.groupcomp.known)
+with(fix.groupcomp.known, unique(GroupFollow)); with(fix.groupcomp.known, length(unique(GroupFollow)))
+with(fix.groupcomp.known, unique(GroupFollow))
+
+foo = assign.supergroup.bits(fix.groupcomp.known)
 
 #====== +++ === === +++ === === +++ === ===
 # 1. 
@@ -171,6 +244,8 @@ table.term.beh
 # 2         RB  1  1  0  0
 # 3          M  0  1  0  1
 # 4       <NA>  0  0  0  2
+
+
 
 save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/FocalFollows2014.RData")
 rm(list = ls())

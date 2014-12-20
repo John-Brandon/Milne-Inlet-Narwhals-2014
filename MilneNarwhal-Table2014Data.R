@@ -13,14 +13,13 @@
 #  3) These data are also known as "Relative Abundance and Distribution" (RAD) data 
 #  4) Loads existing workspace, that contains 2014 data (dat2014)
 #====== +++ === === +++ === === +++ === ===
-library(plyr) # Hadley Wickham's "Plier" package for splitting data.frames and applying functions to each subset
-# install.packages("dplyr")
-library(dplyr)
-library(reshape)
 
 rm(list=ls()) # clear leftovers from previous workspace
 
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") # Load workspace 
+
+# Load packages, this list is defined in Munging2014Data script
+load.packages()
 
 # Alternatively, e.g. if data has been updated, can source the script to munge 2014 data
 # setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Code/Milne-Inlet-Narwhals-2014")
@@ -29,8 +28,14 @@ load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal
 setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data, really for outputting tables (data has already been read)
 
 #====== +++ === === +++ === === +++ === ===
-# (1)
-# Table counts of group sizes by sub-stratum
+# (0) Quick summary of counts
+#====== +++ === === +++ === === +++ === ===
+with(dat2014, length(which(GroupSizeLevel == "ZeroCount")))
+with(dat2014, length(which(GroupSizeLevel == "PositiveCount")))
+with(dat2014, sum(GroupSize[which(GroupSizeLevel == "PositiveCount")], na.rm = TRUE))
+
+#====== +++ === === +++ === === +++ === ===
+# (1) Table counts of group sizes by sub-stratum
 #====== +++ === === +++ === === +++ === ===
 table.group.size = function(dat){
   group.size = table(dat$SubStratum, dat$GroupSize) # ?table
@@ -42,95 +47,110 @@ table.group.size = function(dat){
   return(group.size)
 }
 
-group.size = table.group.size(dat2014)
-head(group.size, n = 30) # check  
-# write.csv(file = "foo.csv", x = group.size, row.names = FALSE); system("open foo.csv") # check
+#====== +++ === === +++ === === +++ === ===
+# (2) Take frequencies of different group sizes in each substratum,
+#     to get total numbers associated with different group sizes by substratum 
+#====== +++ === === +++ === === +++ === ===
+calc.intermediate.counts = function(group.size.table){
+  tot.counts = group.size
+  tot.counts$TotalCount = as.numeric(tot.counts$GroupSize) * tot.counts$Freq # TotalCounts are product of group size and numbers of groups
+  tot.counts$Stratum = substring(tot.counts$SubStratum, first = 1, last = 1) # Create a vector with Stratum from SubStratum vector
+  tot.counts$SubStratum.num = substring(tot.counts$SubStratum, first = 2, last = 2) # Create a vector with SubStratum.num from SubStratum vector
+  return(tot.counts)  
+}
 
 #====== +++ === === +++ === === +++ === ===
-# (2)
-# Take frequencies of different group sizes in each substratum to get total numbers associated with different group sizes in each substratum 
+# (3) Summarize abundance by SubStratum (integrating over time)
 #====== +++ === === +++ === === +++ === ===
-tot.counts = group.size
-tot.counts$TotalCount = as.numeric(tot.counts$GroupSize) * tot.counts$Freq # TotalCounts are product of group size and numbers of groups
-tot.counts$Stratum = substring(tot.counts$SubStratum, first = 1, last = 1) # Create a vector with Stratum from SubStratum vector
-tot.counts$SubStratum.num = substring(tot.counts$SubStratum, first = 2, last = 2) # Create a vector with SubStratum.num from SubStratum vector
-head(tot.counts, n = 30) # check
-# write.csv(x = tot.counts, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+calc.total.counts.subs = function(tot.counts){
+  # uses 'plyr' package, could also use function aggregate  
+  tot.counts.subs = ddply(tot.counts, "SubStratum", summarise, TotalCount = sum(TotalCount, na.rm = TRUE)) 
+  return(tot.counts.subs)
+}
 
 #====== +++ === === +++ === === +++ === ===
-# (3)
-# Summarize abundance by SubStratum (integrating over time)
+# (4) Summarize by Stratum (integrating over time) 
+#   tot.counts.strat is plotted as histogram in plotting script
 #====== +++ === === +++ === === +++ === ===
-tot.counts.subs = ddply(tot.counts, "SubStratum", summarise, TotalCount = sum(TotalCount, na.rm = TRUE)) # uses 'plyr' package, could also use function aggregate
-head(tot.counts.subs)
-# write.csv(x = tot.counts.subs, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+calc.total.counts.strat = function(tot.counts){
+  # uses 'plyr' package, could also use function aggregate  
+  tot.counts.strat = ddply(tot.counts, "Stratum", summarise, TotalCount = sum(TotalCount, na.rm = TRUE)) 
+  return(tot.counts.strat)
+}
 
 #====== +++ === === +++ === === +++ === ===
-# (4)
-# Summarize by Stratum (integrating over time) -- tot.counts.strat is plotted as histogram in plotting script
-#====== +++ === === +++ === === +++ === ===
-tot.counts.strat = ddply(tot.counts, "Stratum", summarise, TotalCount = sum(TotalCount, na.rm = TRUE)) # uses 'plyr' package, could also use function aggregate
-head(tot.counts.strat) # check
-# with(tot.counts.strat, sum(TotalCount)) # check
-
-#====== +++ === === +++ === === +++ === ===
-# (5)
-# Create a data.frame with TotalCount by SubStratum and Count.id
+# (5) Create a data.frame with TotalCount by SubStratum and Count.id
 #  Note: using .(x, y) in ddply saves having to put quotes around "x" and "y"
 #====== +++ === === +++ === === +++ === ===
-counts.by.sub.stratum = ddply(dat2014, .(Count.id, SubStratum), summarise, 
-            datetime = unique(datetime), 
-            datetime.rounded.to.half.hr = unique(datetime.nearest.half.hr),                        
-            TotalCount.with.na = sum(GroupSize, na.rm = FALSE), 
-            TotalCount.without.na = sum(GroupSize, na.rm = TRUE),
-            Sightability = ifelse(length(unique(Sightability)) > 0, paste(unique(Sightability), collapse = "," ), NA),
-            #datetime.rounded.to.hr = unique(datetime.rounded.to.hr),
-            CountType = unique(CountType),
-            Vessel.related.count = unique(Vessel.related.count),
-            SeaState = ifelse(length(unique(SeaState)) > 0, paste(unique(SeaState), collapse = "," ), NA)
-            # Include.count = unique(Include.count)
-                                    ) # returns numbers by sub-strata for each count.id
-
-counts.by.sub.stratum$Stratum = substring(counts.by.sub.stratum$SubStratum, first = 1, last = 1) # Create a vector with Stratum from SubStratum vector
-counts.by.sub.stratum$SubStratum.num = substring(counts.by.sub.stratum$SubStratum, first = 2, last = 2) # Create a vector with SubStratum.num from SubStratum vector   
+calc.counts.by.sub.stratum = function(dat){
+  counts.by.sub.stratum = ddply(dat, .(Count.id, SubStratum), summarise, 
+                                datetime = unique(datetime), 
+                                datetime.rounded.to.half.hr = unique(datetime.nearest.half.hr),                        
+                                TotalCount.with.na = sum(GroupSize, na.rm = FALSE), 
+                                TotalCount.without.na = sum(GroupSize, na.rm = TRUE),
+                                Sightability = ifelse(length(unique(Sightability)) > 0, paste(unique(Sightability), collapse = "," ), NA),
+                                #datetime.rounded.to.hr = unique(datetime.rounded.to.hr),
+                                CountType = unique(CountType),
+                                Vessel.related.count = unique(Vessel.related.count),
+                                SeaState = ifelse(length(unique(SeaState)) > 0, paste(unique(SeaState), collapse = "," ), NA),
+                                count.quality = unique(count.quality)
+                                # Include.count = unique(Include.count)
+  ) # returns numbers by sub-strata for each count.id
+  
+  counts.by.sub.stratum = extract.stratum(counts.by.sub.stratum) # creates new columns for Stratum (A,B,C,etc) and Strat.number
+  return(counts.by.sub.stratum)
+}
 
 # write.csv(x = counts.by.sub.stratum, file = "counts.by.sub.stratum.csv", row.names = FALSE); system("open counts.by.sub.stratum.csv") # check
 
-with(counts.by.sub.stratum, table(Sightability, Vessel.related.count)) # table sightability vs. vessel.related.scans
-
-with(counts.by.sub.stratum, unique(SeaState))
-
-# DEBUGGING -- Check for duplicate times (as rounded to nearest hour and half hour). Should be no duplicates on half-hours. 
-# foo = ddply(counts.by.sub.stratum, "Count.id", summarise, 
-#             datetime.rounded.to.hr = unique(datetime.rounded.to.hr),
-#             datetime.rounded.to.half.hr = unique(datetime.rounded.to.half.hr)
-#             )
-# foo$duplicated = duplicated(foo$datetime.rounded.to.hr)
-# foo$duplicated.half.hr = duplicated(foo$datetime.rounded.to.half.hr)
-# foo$datetime.rounded.to.hr[duplicated(foo$datetime.rounded.to.hr)] 
-# foo$datetime.rounded.to.half.hr[duplicated(foo$datetime.rounded.to.half.hr)]
-# unique(duplicated(foo$datetime.rounded.to.half.hr)) # check 
-# 
-# write.csv(x = foo, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
 #====== +++ === === +++ === === +++ === ===
-# (6)
-# Collapse data.frame with TotalCount-by-SubStratum and Count.id, to a data.frame with count-by-stratum
+# (6) Collapse data.frame with TotalCount-by-SubStratum and Count.id, 
+#     to a data.frame with count-by-stratum
 #====== +++ === === +++ === === +++ === ===
-counts.by.stratum = ddply(counts.by.sub.stratum, .(Count.id, Stratum), summarise, 
-                                    datetime = unique(datetime), 
-                                    datetime.rounded.to.half.hr = unique(datetime.rounded.to.half.hr),                        
-                                    TotalCount.with.na = sum(TotalCount.with.na, na.rm = FALSE), 
-                                    TotalCount.without.na = sum(TotalCount.without.na, na.rm = TRUE),
-                                    Sightability = ifelse(length(unique(Sightability)) > 0, paste(unique(Sightability), collapse = "," ), NA),
-                                    #datetime.rounded.to.hr = unique(datetime.rounded.to.hr),
-                                    CountType = unique(CountType),
-                                    Vessel.related.count = unique(Vessel.related.count)
-                                    #Include.stratum.count = unique(Include.stratum.count)
-) # returns numbers by sub-strata for each count.id
+calc.counts.by.strat = function(counts.by.sub.stratum){
+  counts.by.stratum = ddply(counts.by.sub.stratum, .(Count.id, Stratum), summarise, 
+                            datetime = unique(datetime), 
+                            datetime.rounded.to.half.hr = unique(datetime.rounded.to.half.hr),                        
+                            TotalCount.with.na = sum(TotalCount.with.na, na.rm = FALSE), 
+                            TotalCount.without.na = sum(TotalCount.without.na, na.rm = TRUE),
+                            Sightability = ifelse(length(unique(Sightability)) > 0, paste(unique(Sightability), collapse = "," ), NA),
+                            #datetime.rounded.to.hr = unique(datetime.rounded.to.hr),
+                            CountType = unique(CountType),
+                            Vessel.related.count = unique(Vessel.related.count),
+                            count.quality = unique(count.quality)
+                            #Include.stratum.count = unique(Include.stratum.count)
+  ) # returns numbers by sub-strata for each count.id
+  return(counts.by.stratum)
+}
 
-head(counts.by.stratum)
 # write.csv(x = counts.by.stratum, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
+
+#====== +++ === === +++ === === +++ === ===
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Call functions to create data.tables
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#====== +++ === === +++ === === +++ === ===
+str(dat2014)
+with(dat2014, length(unique(Count.id)))
+group.size.2014 = table.group.size(dat2014)
+tot.counts.2014 = calc.intermediate.counts(group.size.2014)
+tot.counts.subs.2014 = calc.total.counts.subs(tot.counts.2014)
+tot.counts.strat.2014 = calc.total.counts.strat(tot.counts.2014)
+
+counts.by.sub.stratum.2014 = calc.counts.by.sub.stratum(dat2014) # takes a moment
+str(counts.by.sub.stratum.2014)
+with(counts.by.sub.stratum, table(Sightability, Vessel.related.count)) # table sightability vs. vessel.related.scans
+with(counts.by.sub.stratum, unique(SeaState))
+with(counts.by.sub.stratum, unique(Sightability))
+
+counts.by.stratum.2014 = calc.counts.by.strat(counts.by.sub.stratum.2014) # takes a moment
+str(counts.by.stratum.2014)
+View(counts.by.stratum.2014)
+write.csv(x = counts.by.stratum.2014, file = "counts.by.stratum.2014.csv", row.names = FALSE); system("open counts.by.stratum.2014.csv") # check
+#====== +++ === === +++ === === +++ === ===
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#====== +++ === === +++ === === +++ === ===
+
 
 #====== +++ === === +++ === === +++ === ===
 # (7) 
@@ -140,35 +160,35 @@ head(counts.by.stratum)
 #   Unless all of the sub-stratum are "G" or "E" in a stratum count, that stratum is filtered.
 #   So, in this example, stratum A would be filtered out because one of the sub-stratum was not "G" or "E".
 #====== +++ === === +++ === === +++ === ===
-counts.by.stratum.keepers = subset(counts.by.stratum, Sightability %in% c("G", "E", "G,E", "E,G"))
-head(counts.by.stratum.keepers)
-str(counts.by.stratum.keepers)
-length(with(counts.by.stratum.keepers, unique(Count.id))) # check
-
-calc.ssq = function(x, y) sum((x-y)^2, na.rm = TRUE)
-with(counts.by.stratum.keepers, calc.ssq(TotalCount.with.na, TotalCount.without.na)) # check
-
-# merge tide data 
-counts.by.stratum.keepers = merge(counts.by.stratum.keepers, dat.tides.2014.subset, by.x = "datetime.rounded.to.half.hr", by.y = "datetime")
-View(counts.by.stratum.keepers)
+# counts.by.stratum.keepers = subset(counts.by.stratum, Sightability %in% c("G", "E", "G,E", "E,G"))
+# head(counts.by.stratum.keepers)
+# str(counts.by.stratum.keepers)
+# length(with(counts.by.stratum.keepers, unique(Count.id))) # check
+# 
+# calc.ssq = function(x, y) sum((x-y)^2, na.rm = TRUE)
+# with(counts.by.stratum.keepers, calc.ssq(TotalCount.with.na, TotalCount.without.na)) # check
+# 
+# # merge tide data 
+# counts.by.stratum.keepers = merge(counts.by.stratum.keepers, dat.tides.2014.subset, by.x = "datetime.rounded.to.half.hr", by.y = "datetime")
+# View(counts.by.stratum.keepers)
 # write.csv(x = counts.by.stratum.keepers, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # (7.1) 
 # Cast the counts by stratum into a wide format data.frame
 #====== +++ === === +++ === === +++ === ===
-counts.by.stratum.keepers$value = counts.by.stratum.keepers$TotalCount.without.na
-dat.mat.2014 = cast(counts.by.stratum.keepers, datetime.rounded.to.half.hr + CountType ~ Stratum) # reshape the data.frame into Table D-1 from 2013 report (cast in Wickham's lexicon)
-# dat.mat.2014 = mutate(dat.mat.2014, totalcount = A + B + C + D + E + F + G + H + I)
-strat.tmp = subset(dat.mat.2014, select = c(A,B,C,D,E,F,G,H,I))
-Sightability = NULL; totalcount = NULL
-for(ii in 1:nrow(strat.tmp)){
- Sightability[ii] = ifelse(any(is.na(strat.tmp[ii,])), "Poor", "Good")
- totalcount[ii] = sum(strat.tmp[ii,], na.rm = TRUE)
-}
-dat.mat.2014 = cbind(dat.mat.2014, totalcount, Sightability) # bind new columns
-head(dat.mat.2014)
-
+# counts.by.stratum.keepers$value = counts.by.stratum.keepers$TotalCount.without.na
+# dat.mat.2014 = cast(counts.by.stratum.keepers, datetime.rounded.to.half.hr + CountType ~ Stratum) # reshape the data.frame into Table D-1 from 2013 report (cast in Wickham's lexicon)
+# # dat.mat.2014 = mutate(dat.mat.2014, totalcount = A + B + C + D + E + F + G + H + I)
+# strat.tmp = subset(dat.mat.2014, select = c(A,B,C,D,E,F,G,H,I))
+# Sightability = NULL; totalcount = NULL
+# for(ii in 1:nrow(strat.tmp)){
+#  Sightability[ii] = ifelse(any(is.na(strat.tmp[ii,])), "Poor", "Good")
+#  totalcount[ii] = sum(strat.tmp[ii,], na.rm = TRUE)
+# }
+# dat.mat.2014 = cbind(dat.mat.2014, totalcount, Sightability) # bind new columns
+# head(dat.mat.2014)
+# View(dat.mat.2014)
 # write.csv(x = dat.mat.2014, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
@@ -177,65 +197,106 @@ head(dat.mat.2014)
 #  with vector including time-stamps for full season
 # This is a pre-cursor to plotting the time-series of effort / counts for the whole season 
 #====== +++ === === +++ === === +++ === ===
-head(dat.mat.2014$datetime.rounded.to.half.hr)
+# head(dat.mat.2014$datetime.rounded.to.half.hr)
+str(half.hourly.timestamps)
+time.stamps = force_tz(half.hourly.timestamps, tzone = tz(dat2014$datetime))
 time.stamps = as.data.frame(half.hourly.timestamps)
+str(time.stamps)
 
 # tmp = merge(dat.mat.2014, time.stamps, by.x = "datetime.rounded.to.half.hr", by.y = "half.hourly.timestamps") # inner join
 # tmp = merge(time.stamps, dat.mat.2014, by.x = "half.hourly.timestamps", by.y = "datetime.rounded.to.half.hr")
-all.season.dat = merge(dat.mat.2014, time.stamps, by.x = "datetime.rounded.to.half.hr", by.y = "half.hourly.timestamps", all = TRUE) # outer join
-library(lubridate)
-all.season.dat$daynumber = yday(all.season.dat$datetime.rounded.to.half.hr)
+head(counts.by.stratum.2014)
+head(dat.mat.2014)
+
+counts.for.plot = ddply(counts.by.stratum.2014, .(Count.id), summarise, 
+                        datetime.rounded.to.half.hr = unique(datetime.rounded.to.half.hr),
+                        daynumber = yday(unique(datetime.rounded.to.half.hr)),
+                  #      CountType = unique(CountType),
+                        totalcount = sum(TotalCount.without.na),
+                        Sightability = unique(count.quality)
+)
+head(counts.for.plot, n = 80)
+
+#all.season.dat = merge(dat.mat.2014, time.stamps, by.x = "datetime.rounded.to.half.hr", by.y = "half.hourly.timestamps", all = TRUE) # outer join
+all.season.dat = merge(counts.for.plot, time.stamps, by.x = "datetime.rounded.to.half.hr", by.y = "half.hourly.timestamps", all = TRUE) # outer join
+head(all.season.dat)
 
 # write.csv(x = all.season.dat, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
-names(all.season.dat)
 
 #====== +++ === === +++ === === +++ === ===
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# "Fig 21" Time series of total counts
 # TODO : Move this to plotting script
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #====== +++ === === +++ === === +++ === ===
-library(ggplot2)
-library(scales)
 #Breaks for background rectangles
 # dat.to.plot = subset(all.season.dat, daynumber %in% c(215:225))
 dat.to.plot = all.season.dat
 names(dat.to.plot)
-large.vessels = data.frame(xstart = all.season.dat$datetime.rounded.to.half.hr[4], xend = all.season.dat$datetime.rounded.to.half.hr[12])
-str(large.vessels)
+# large.vessels = data.frame(xstart = all.season.dat$datetime.rounded.to.half.hr[4], xend = all.season.dat$datetime.rounded.to.half.hr[12])
+# str(large.vessels)
 
-large.vess.times$daynumber = yday(large.vess.times$start.time)
-vess.to.plot = subset(large.vess.times, daynumber %in% c(215:225))
+add.large.vess.starts = as.POSIXct(c("2014-08-08 14:00",  # add additional (unobserved at time) large vess transits
+                                     "2014-08-11 13:00", 
+                                     "2014-08-12 00:00",
+                                     "2014-08-19 18:30",
+                                     "2014-08-30 00:00",
+                                     "2014-09-08 02:00",
+                                     "2014-09-08 04:30"), tz = "America/Iqaluit")
+add.large.vess.stops = as.POSIXct(c("2014-08-08 16:00", 
+                                     "2014-08-11 14:00", 
+                                     "2014-08-12 01:00",
+                                     "2014-08-19 19:00",
+                                     "2014-08-30 20:00",
+                                     "2014-09-08 03:00",
+                                     "2014-09-08 05:30"), tz = "America/Iqaluit")
+
+add.large.vess = data.frame(start.time = add.large.vess.starts, stop.time = add.large.vess.stops)
+large.vess.times = extract.vessel.transit.times(dat2014) # extract large vess times from count data
+
+large.vess.times$start.time = force_tz(large.vess.times$start.time, tzone = "America/Iqaluit")
+large.vess.times$stop.time = force_tz(large.vess.times$stop.time, tzone = "America/Iqaluit")
+
+large.vess.times[,1] - hours(4) 
+
+#large.vess.times = rbind(large.vess.times, add.large.vess) # add extra large vessels
+large.vess.times = rbind(add.large.vess, large.vess.times) # add extra large vessels
+large.vess.times$daynumber = yday(large.vess.times$start.time) # assign day number
+large.vess.times = arrange(large.vess.times, start.time) # sort by start.time
+
+dat.to.plot$datetime.rounded.to.half.hr = force_tz(dat.to.plot$datetime.rounded.to.half.hr, tzone = "EDT")
+tz(dat.to.plot$datetime.rounded.to.half.hr)
+tz(dat.to.plot) # UTC ??
+
+# vess.to.plot = subset(large.vess.times, daynumber %in% c(215:225))
 #gg = ggplot(dat.to.plot, aes(x = datetime.rounded.to.half.hr, y = totalcount, colour = Sightability))
 gg = ggplot()
-#gg = gg + geom_rect(data = large.vessels, aes(xmin = xstart, xmax = xend, ymin = 0, ymax = Inf), alpha = 0.4) #)
-gg = gg + geom_rect(data = large.vess.times, aes(xmin = start.time, xmax = stop.time, ymin = 0, ymax = Inf), alpha = 0.4) #)
+# gg = gg + mytheme_bw + scale_x_datetime(breaks = date_breaks("1 day"), minor_breaks = date_breaks("1 hour"), 
+#                                         labels = date_format('%d-%b'), 
+#                                         limits = as.POSIXct(c("2014-08-08","2014-08-10"), tz = "EDT")) 
+gg = gg + geom_rect(data = large.vess.times, aes(xmin = start.time - hours(4), xmax = stop.time - hours(4), ymin = 0, ymax = Inf), alpha = 0.4) #)
 gg = gg + geom_point(data = dat.to.plot[!is.na(dat.to.plot$totalcount),], aes(x = datetime.rounded.to.half.hr, y = totalcount, group = daynumber, colour = Sightability)) # aes(group = daynumber)  
-gg
 gg = gg + geom_line(data = dat.to.plot[!is.na(dat.to.plot$totalcount),], aes(x = datetime.rounded.to.half.hr, y = totalcount, group = daynumber, colour = Sightability)) 
-gg = gg + xlab("Date and time") + ylab("Number of narwhals")
-gg = gg + theme_bw()
-# gg = gg + scale_colour_brewer(palette = "Set1")
+gg = gg + xlab("Date") + ylab("Number of narwhals")
 gg = gg + scale_colour_manual(values = c("blue", "red"))
+gg = gg + mytheme_bw
+
+# Calls below make invididual plots for a given date range (defined by limits)
+gg + mytheme_bw + scale_x_datetime(breaks = date_breaks("1 day"), minor_breaks = date_breaks("6 hour"), 
+                      labels = date_format('%d-%b'), 
+                      limits = as.POSIXct(c("2014-08-03","2014-08-10"), tz = "EDT")) 
 
 gg + scale_x_datetime(breaks = date_breaks("1 day"), minor_breaks = date_breaks("6 hour"), 
                       labels = date_format('%d-%b'),
-                      limits = as.POSIXct(c("2014-08-03","2014-08-10"))) 
+                      limits = as.POSIXct(c("2014-08-11","2014-08-18"), tz = "EDT")) 
 
 gg + scale_x_datetime(breaks = date_breaks("1 day"), minor_breaks = date_breaks("6 hour"), 
                       labels = date_format('%d-%b'),
-                      limits = as.POSIXct(c("2014-08-11","2014-08-18"))) 
+                      limits = as.POSIXct(c("2014-08-19","2014-08-26"), tz = "EDT")) 
 
 gg + scale_x_datetime(breaks = date_breaks("1 day"), minor_breaks = date_breaks("6 hour"), 
                       labels = date_format('%d-%b'),
-                      limits = as.POSIXct(c("2014-08-19","2014-08-26"))) 
-
-gg + scale_x_datetime(breaks = date_breaks("1 day"), minor_breaks = date_breaks("6 hour"), 
-                      labels = date_format('%d-%b'),
-                      limits = as.POSIXct(c("2014-08-27","2014-09-04"))) 
-?glm.nb
-
-?scale_x_datetime
-?scale_colour_brewer
-?date_breaks
-?scales
+                      limits = as.POSIXct(c("2014-08-27","2014-09-04"), tz = "EDT")) 
 
 #====== +++ === === +++ === === +++ === ===
 # (8) 

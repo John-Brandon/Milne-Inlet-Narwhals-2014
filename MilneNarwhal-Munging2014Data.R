@@ -20,6 +20,9 @@ load.packages = function(){
   library(reshape)
   library(reshape2)  # Wickham's package that, with respect to data.frames, melts (long format) and casts (wide format). Google it.
   library(ggplot2)  # Plotting
+  library(scales) 
+  library(MASS) # glm.nb()
+  library(lme4) # glmer()
 }
 
 load.packages()
@@ -58,6 +61,16 @@ clean.typos = function(dat){
   dat$GroupSize[group.size.typos.ii] = 1
   
   dat$GroupSize = as.numeric(dat$GroupSize) # coerce if not already numeric (was read as character initially)  
+  return(dat)
+}
+
+#====== +++ === === +++ === === +++ === ===
+# Remove 'extraneous' columns [not needed for quantitative analyses]
+#====== +++ === === +++ === === +++ === ===
+remove.extraneous.columns = function(dat){
+  columns.to.remove = c("Obs", "Obs_BI", "Obs_DR", "Comments", "Entered", "Checked")
+  columns.to.keep = setdiff(names(dat), columns.to.remove)
+  dat = dat[ , columns.to.keep] 
   return(dat)
 }
 
@@ -181,6 +194,7 @@ round.to.nearest.hr = function(dat){
   datetime.rounded.to.hr = dat$datetime
   datetime.rounded.to.hr = round_date(datetime.rounded.to.hr, unit = "hour") # rounds to nearest hour
   dat$datetime.rounded.to.hr = datetime.rounded.to.hr # append the rounded hours to data.frame  
+  dat$datetime.rounded.to.hr = force_tz(dat$datetime.rounded.to.hr, tz = tz(dat$datetime))
   return(dat)
 }
 
@@ -190,6 +204,7 @@ round.to.nearest.hr = function(dat){
 round.to.nearest.half.hr = function(dat){
   #  uses lubridate
   dat$datetime.nearest.half.hr = ymd_hms(dat$datetime)
+  dat$datetime.nearest.half.hr = force_tz(dat$datetime.nearest.half.hr, tz = tz(dat$datetime))
   minute(dat$datetime.nearest.half.hr) = round(minute(dat$datetime.nearest.half.hr)/30)*30 # round to nearest half hour
   return(dat)
 }
@@ -207,6 +222,7 @@ round.to.nearest.five.min = function(dat){
 
 #====== +++ === === +++ === === +++ === ===
 # Add column with decimal form of hour:min
+#  This works with 'datetime.nearest.half.hr'
 #====== +++ === === +++ === === +++ === ===
 calc.dec.hour = function(dat){
   dat$dec.hour = ymd_hms(dat$datetime.nearest.half.hr)  
@@ -224,6 +240,15 @@ calc.julian.date = function(dat){
 }
 
 #====== +++ === === +++ === === +++ === ===
+# Add column with decimal Julian date
+#====== +++ === === +++ === === +++ === ===
+calc.decimal.julian.date = function(dat){
+  dat$dec.julian.date = dat$julian.date
+  dat$dec.julian.date = dat$dec.julian.date + (dat$dec.hour / 24)
+  return(dat)
+}
+
+#====== +++ === === +++ === === +++ === ===
 # Wrapper function for calls to munge dates and times, and to assign Count.id
 #====== +++ === === +++ === === +++ === ===
 do.dates.and.ids = function(dat){
@@ -235,17 +260,29 @@ do.dates.and.ids = function(dat){
   dat = round.to.nearest.five.min(dat) # returns a column with time rounded to nearest five minutes
   dat = calc.dec.hour(dat) # returns a column with decimal hour
   dat = calc.julian.date(dat) # returns a column with julian date
+  dat = calc.decimal.julian.date(dat) # returns a column with decimal julian date
   dat = assign.count.ids(dat)  # assign id numbers for each count  
   return(dat)
 }
 
 #====== +++ === === +++ === === +++ === ===
-# Add a column with a factor for GroupSize. Two levels: (1) ZeroCount and (2) PositiveCount
+# Add a column with a factor for GroupSize. 
+#  Two levels: (1) ZeroCount and (2) PositiveCount
 #====== +++ === === +++ === === +++ === ===
 factor.group.size = function(dat){
   dat$GroupSizeLevel = rep(NA, nrow(dat))
   dat$GroupSizeLevel[which(dat$GroupSize == 0)] = "ZeroCount"
   dat$GroupSizeLevel[which(dat$GroupSize > 0)] = "PositiveCount"
+  return(dat)
+}
+
+#====== +++ === === +++ === === +++ === ===
+# Add a column with a factor for Count.quality. 
+#  Two levels: (1) "Good" and (2) "Poor"
+#====== +++ === === +++ === === +++ === ===
+factor.count.quality = function(dat){
+  dat$count.quality = rep(NA, nrow(dat))
+  dat = ddply(dat, .(Count.id), transform, count.quality = ifelse(all(Include.stratum.count), "Good", "Poor"))
   return(dat)
 }
 
@@ -263,23 +300,38 @@ merge.2014.dat.tides = function(dat, dat.tides){
   # write.csv(x = dat2014, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check  
 }
 
+#====== +++ === === +++ === === +++ === ===
+# Filter out large vessel counts
+#====== +++ === === +++ === === +++ === ===
+filter.out.large.vessels = function(dat){
+  dat = filtered.dat2014
+  dat = subset(dat, CountType == "H")
+  return(dat)
+}
 
 #====== +++ === === +++ === === +++ === ===
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Get the data and get it in shape. This is where the magic happens. 
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #====== +++ === === +++ === === +++ === ===
-
+base.dir = "~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014" # TODO: Make the directory code more flexible for other machines
+setwd(base.dir) # Set working directory for data
 dat2014 = read.csv(file = dfile, header = TRUE, as.is = TRUE, na.strings = c("NA", "x", "X")) # Read data file 
 dat2014 = clean.typos(dat2014)
+dat2014 = remove.extraneous.columns(dat2014)
 dat2014 = extract.stratum(dat2014) 
 dat2014 = do.dates.and.ids(dat2014) 
 dat2014 = assign.vessel.boolean(dat2014)
 dat2014 = factor.group.size(dat2014)
 dat2014 = merge.2014.dat.tides(dat2014, dat.tides.2014)
 dat2014 = assign.strat.sight.2014(dat2014)
+dat2014 = factor.count.quality(dat2014)
+filtered.dat2014 = filter.sight(dat2014)  # filter dat2014 for modeling (3389 rows)
+filtered.dat2014.less.vessels = filter.out.large.vessels(filtered.dat2014)
+View(dat2014)
+write.csv(x = dat2014, file = "foo4.csv", row.names = FALSE); system("open foo4.csv") # check
+write.csv(x = filtered.dat2014, file = "filtered.dat2014.csv", row.names = FALSE); system("open filtered.dat2014.csv") # check
 
-# write.csv(x = dat2014, file = "foo4.csv", row.names = FALSE); system("open foo4.csv") # check
 #====== +++ === === +++ === === +++ === ===
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #====== +++ === === +++ === === +++ === ===
@@ -290,14 +342,17 @@ dat2014 = assign.strat.sight.2014(dat2014)
 #  New data.frame will be used for plotting gray bars during vessel passage on time series plot of counts 
 #====== +++ === === +++ === === +++ === ===
 extract.vessel.transit.times = function(dat){
-  
+
+  dat$datetime.nearest.half.hr = force_tz(dat$datetime.nearest.half.hr, tz = tz(dat$datetime))
+    
   large.vess.count = length(which(!is.na(unique(dat$LargeVess.Trans.ID)))) # four large vess transits during counts in 2014  
   
   large.vess.transit = NULL
-  start.time = as.POSIXct(NA, tz = "") # why tz inconsistent with line below??
+  start.time = as.POSIXct(NA, tz = tz(dat$datetime)) # why tz inconsistent with line below??
   stop.time = as.POSIXct(NA, tz = tz(dat$datetime))
   
   for(ii in 1:large.vess.count){ 
+    # ii = 1
     large.vess.ii = which(dat$LargeVess.Trans.ID == ii)
     large.vess.transit[ii] = ii
     start.time[ii] = min(dat$datetime.nearest.half.hr[large.vess.ii]) # large.vess.start.stop
@@ -308,7 +363,7 @@ extract.vessel.transit.times = function(dat){
   stop.time = with_tz(stop.time, tzone = tz(dat$datetime)) # requires lubridate package
   
   large.vess.times = data.frame(large.vess.transit, start.time, stop.time)
-  
+  large.vess.times = data.frame(start.time, stop.time)
   return(large.vess.times)
 }
 
