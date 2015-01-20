@@ -62,6 +62,7 @@ scandat2014$Speed = revalue(scandat2014$Speed,
                         c("S" = "Slow", 
                           "M" = "Medium",
                           "F" = "Fast")) # helps with plotting labels
+with(scandat2014, table(Speed, TravelDirection))
 
 scandat2014$DistanceAway = revalue(scandat2014$DistanceAway, 
                                c("I" = "Inner", 
@@ -159,9 +160,9 @@ gg.box
 
 # Plot histograms of distribution of group sizes by travel direction
 gg2 = ggplot(scandat.NS, aes(x = GroupSize))
-gg2 = gg2 + geom_histogram(fill = "white", colour = "black")
-gg2 + facet_grid(TravelDirection ~ .) + xlab("Group Size") + ylab("Frequency")
-
+gg2 = gg2 + geom_histogram(fill = "black", colour = "gray")
+gg2 = gg2 + facet_grid(TravelDirection ~ .) + xlab("Group Size") + ylab("Frequency")
+gg2 + mytheme_larger
 #====== +++ === === +++ === === +++ === ===
 # 3. 
 # For all groups, I’d like to summarize the (a) group spread, (b) formation, (c) speed, and (d) distance away 
@@ -186,8 +187,10 @@ chisq.test(table.spread, simulate.p.value = TRUE)
 
 # Use barplots to summarize GroupSpread
 gg4 = ggplot(group.spread.dat, aes(x = GroupSpread))
-gg4 + geom_bar() + xlab("Group Spread") + ylab("Count") + facet_grid(TravelDirection ~ .)
-
+gg4 = gg4 + geom_bar() + xlab("Group Spread") + ylab("Count")
+gg4 = gg4 + facet_grid(TravelDirection ~ .)
+gg4 + mytheme
+gg4 + mytheme_larger
 #====== +++ === === +++ === === +++ === ===
 # 3(b). 
 # Group Formation
@@ -205,8 +208,12 @@ chisq.test(table.formation)
 chisq.test(table.formation[c(1,3),]) # ignore linear, because n < 5 for north and for south
 
 # Use barplots to summarize Formation
+with(formation.spread.dat, unique(Formation))
+formation.spread.dat = subset(formation.spread.dat, Formation != "Non-directional Line")
 gg5 = ggplot(formation.spread.dat, aes(x = Formation))
-gg5 + geom_bar() + xlab("Formation") + ylab("Count") + facet_grid(TravelDirection ~ .)
+gg5 = gg5 + geom_bar() + xlab("Formation") + ylab("Count") 
+gg5 = gg5 + facet_grid(TravelDirection ~ .)
+gg5 + mytheme_larger
 
 #====== +++ === === +++ === === +++ === ===
 # 3(c). 
@@ -219,7 +226,10 @@ table.speed[c(2,3),] # just medium and slow, because not enough samples
 chisq.test(table.speed[c(2,3),])
 #fisher.test(table.speed[c(2,3),])
 gg6 = ggplot(scandat, aes(x = Speed))
-gg6 + geom_bar() + xlab("Group Speed") + ylab("Count") + facet_grid(TravelDirection ~ .) + scale_x_discrete(limits=c("Slow","Medium","Fast"))
+gg6 = gg6 + geom_bar() + xlab("Group Speed") + ylab("Count") 
+gg6 = gg6 + facet_grid(TravelDirection ~ .) 
+gg6 = gg6 + scale_x_discrete(limits=c("Slow","Medium","Fast"))
+gg6 + mytheme_larger
 
 #====== +++ === === +++ === === +++ === ===
 # 3(d). 
@@ -231,8 +241,11 @@ table.dist.away = table(group.dist.away.dat$DistanceAway, group.dist.away.dat$Tr
 table.dist.away
 chisq.test(table.dist.away)
 
+group.dist.away.dat$DistanceAway
 gg7 = ggplot(group.dist.away.dat, aes(x = DistanceAway))
-gg7 + geom_bar() + xlab("Group Distance Away") + ylab("Count") + facet_grid(TravelDirection ~ .)
+gg7 = gg7 + geom_bar() + xlab("Group Distance Away") + ylab("Count") 
+gg7 = gg7 + facet_grid(TravelDirection ~ .)
+gg7 + mytheme_larger
 
 #====== +++ === === +++ === === +++ === ===
 # 4. Now going to take into account all groups, regardless of travel direction 
@@ -279,11 +292,13 @@ round(sapply(groupcomp.calves, sd), 2)
 # Plot group compositions for those groups including calves. 
 groupcomp.calves.melt = melt(groupcomp.calves, id.vars = c("Group.ID", "GroupSize")) # melt data.frame from wide to long for plotting
 # View(groupcomp.calves.melt) # check
-gg8 = ggplot(groupcomp.calves.melt, aes(x = Group.ID, y = value, fill = variable)) + ylab("Group Size") + xlab("Group ID")
+gg8 = ggplot(groupcomp.calves.melt, aes(x = Group.ID, y = value, fill = variable)) 
+gg8 = gg8 + ylab("Narwhal Group Size") + xlab("Group ID")
 gg8 = gg8 + geom_bar(aes(order = desc(variable)), stat = "identity")
 gg8 = gg8 + scale_y_discrete(breaks = seq(0, 30, by = 2))
-gg8 = gg8 + scale_fill_brewer("Stage class", palette="Set1", labels = c("Adult with Tusk", "Juvenile with Tusk", "Adult No Tusk", "Juvenile No Tusk", "Calf"))
-gg8 + mytheme 
+gg8 = gg8 + scale_fill_brewer("Group Composition", palette="Set1", labels = c("Adult with Tusk", "Juvenile with Tusk", "Adult No Tusk", "Juvenile No Tusk", "Calf"))
+gg8 = gg8 + mytheme_larger 
+gg8 + theme(legend.position = c(1,1), legend.justification = c(1,1), legend.text = element_text(size = 22), legend.title = element_text(size = 22))
 
 # For groups where group composition is known (i.e. GroupSize = sum(YesTusk_A,YesTusk_J, NoTusk_A, NoTusk_J, NoTusk_C)
 #====== +++ === === +++ === === +++ === ===
@@ -303,11 +318,13 @@ summary(dat.groupcomp.subset$GroupSize)
 
 groupcomp.subset.melt = melt(dat.groupcomp.subset, id.vars = c("Group.ID", "GroupSize")) # melt data.frame from wide to long for plotting
 # View(groupcomp.calves.melt) # check
-gg9 = ggplot(groupcomp.subset.melt, aes(x = Group.ID, y = value, fill = variable)) + ylab("Group Size") + xlab("Group ID")
+gg9 = ggplot(groupcomp.subset.melt, aes(x = Group.ID, y = value, fill = variable))
+gg9 = gg9 + ylab("Narwhal Group Size") + xlab("Group ID")
 gg9 = gg9 + geom_bar(aes(order = desc(variable)), stat = "identity")
 gg9 = gg9 + scale_y_discrete(breaks = seq(0, 100, by = 2))
-gg9 = gg9 + scale_fill_brewer("Stage class", palette="Set1", labels = c("Adult with Tusk", "Juvenile with Tusk", "Adult No Tusk", "Juvenile No Tusk", "Calf"))
-gg9 + mytheme
+gg9 = gg9 + scale_fill_brewer("Group Composition", palette="Set1", labels = c("Adult with Tusk", "Juvenile with Tusk", "Adult No Tusk", "Juvenile No Tusk", "Calf"))
+gg9 = gg9 + mytheme_larger 
+gg9 + theme(legend.position = c(1,1), legend.justification = c(1,1), legend.text = element_text(size = 22), legend.title = element_text(size = 22))
 
 # For groups where group composition is known (i.e. GroupSize = sum(YesTusk_A,YesTusk_J, NoTusk_A, NoTusk_J, NoTusk_C)
 #====== +++ === === +++ === === +++ === ===
@@ -347,8 +364,8 @@ assign.supergroup.bits = function(dat){
   SuperGroup1 = c("00010", "00110", "00100") # (i) NoTusk_J, (ii) NoTusk_A + NoTusk_J (iii) NoTusk_A
   SuperGroup2 = c("00101", "00111") # (i) NoTusk_A + NoTusk_C, (ii) NoTusk_A + NoTusk_J + NoTusk_C
   SuperGroup3 = c("10000", "01000", "11000") # (i) YesTusk_A, (ii) YesTusk_J, (iii) YesTuskA + YesTusk_J
-  SuperGroup4 = c("11010", "10010", "10110", "10100", "01110") # (i) YT_A + YT_J + NT_J, (ii) YT_A + NT_J, (iii) YT_A + NT_A + NT_J, (iv) YT_A + NT_A, (v) YT_J + NT_A + NT_J
-  SuperGroup5 = c("01111", "01101", "10111") # (i) YT_J + NT_A + NT_J + NT_C, (ii) YT_J + NT_A + NT_C, (iii) YT_A + NT_A + NT_J + NT_C
+  SuperGroup4 = c("11010", "10010", "10110", "10100", "01110", "11110") # (i) YT_A + YT_J + NT_J, (ii) YT_A + NT_J, (iii) YT_A + NT_A + NT_J, (iv) YT_A + NT_A, (v) YT_J + NT_A + NT_J, (vii) "11110"
+  SuperGroup5 = c("01111", "01101", "10111", "11101") # (i) YT_J + NT_A + NT_J + NT_C, (ii) YT_J + NT_A + NT_C, (iii) YT_A + NT_A + NT_J + NT_C, (iv) "11101"
   
   dat$SuperGroup = rep("", nrow(dat))
   ii = NULL
@@ -359,6 +376,7 @@ assign.supergroup.bits = function(dat){
     if(dat$super.group.bits[ii] %in% SuperGroup4) dat$SuperGroup[ii] = 4
     if(dat$super.group.bits[ii] %in% SuperGroup5) dat$SuperGroup[ii] = 5
   }  
+  return(dat)
 }
 
 
@@ -382,7 +400,7 @@ SuperGroup1 = c("00010", "00110", "00100") # (i) NoTusk_J, (ii) NoTusk_A + NoTus
 SuperGroup2 = c("00101", "00111") # (i) NoTusk_A + NoTusk_C, (ii) NoTusk_A + NoTusk_J + NoTusk_C
 SuperGroup3 = c("10000", "01000", "11000") # (i) YesTusk_A, (ii) YesTusk_J, (iii) YesTuskA + YesTusk_J
 SuperGroup4 = c("11010", "10010", "10110", "10100", "01110") # (i) YT_A + YT_J + NT_J, (ii) YT_A + NT_J, (iii) YT_A + NT_A + NT_J, (iv) YT_A + NT_A, (v) YT_J + NT_A + NT_J
-SuperGroup5 = c("01111", "01101", "10111") # (i) YT_J + NT_A + NT_J + NT_C, (ii) YT_J + NT_A + NT_C, (iii) YT_A + NT_A + NT_J + NT_C
+SuperGroup5 = c("01111", "01101", "10111", "11101") # (i) YT_J + NT_A + NT_J + NT_C, (ii) YT_J + NT_A + NT_C, (iii) YT_A + NT_A + NT_J + NT_C
 
 dat.GroupCompKnown$SuperGroup = rep("", nrow(dat.GroupCompKnown))
 ii = NULL

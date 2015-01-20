@@ -28,19 +28,30 @@ setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working dire
 
 # Initialize some plottig parameters -- create custom plotting theme for ggplot2
 mytheme = theme_grey() + theme(axis.title.x = element_text(size = rel(1.75), vjust = 0.0), 
-                               axis.title.y = element_text(size = rel(1.75), vjust = 1.0), axis.text = element_text(size = rel(1.5), colour = "black"),
+                               axis.title.y = element_text(size = rel(1.75), vjust = 1.0), 
+                               axis.text = element_text(size = rel(1.5), colour = "black"),
                                plot.title = element_text(size = rel(2.5)),
                                legend.text = element_text(size=14), 
                                legend.title = element_text(size = 14),
                                strip.text.x = element_text(size = 14), 
                                strip.text.y = element_text(size = 14))                               ) # , plot.margin=unit(c(1,1,1,1),"cm")
 
+mytheme_larger = theme_grey() + theme(axis.title.x = element_text(size = rel(2.25), vjust = 0.0), 
+                               axis.title.y = element_text(size = rel(2.25), vjust = 1.0), 
+                               axis.text = element_text(size = rel(2.0), colour = "black"),
+                               plot.title = element_text(size = rel(2.75)),
+                               legend.text = element_text(size=16), 
+                               legend.title = element_text(size = 16),
+                               strip.text.x = element_text(size = 24), 
+                               strip.text.y = element_text(size = 24))                     
+
 mytheme_bw = theme_bw() + theme(axis.title.x = element_text(size = rel(1.75), vjust = 0.0), 
-                               axis.title.y = element_text(size = rel(1.75), vjust = 1.0), axis.text = element_text(size = rel(1.5), colour = "black"),
+                               axis.title.y = element_text(size = rel(1.75), vjust = 1.0), 
+                               axis.text = element_text(size = rel(1.5), colour = "black"),
                                plot.title = element_text(size = rel(2.5)),
-                               legend.text = element_text(size=14), 
-                               legend.title = element_text(size = 14),
-                               panel.grid.major = element_line(colour = "gray"),
+                               legend.text = element_text(size=20), 
+                               legend.title = element_text(size = 20),
+                               panel.grid.major = element_line(colour = "darkgray"),
                                strip.text.x = element_text(size = 14), 
                                strip.text.y = element_text(size = 14))
                                #panel.grid.minor = element_line(colour = "gray")) # , plot.margin=unit(c(1,1,1,1),"cm")
@@ -48,7 +59,19 @@ mytheme_bw = theme_bw() + theme(axis.title.x = element_text(size = rel(1.75), vj
 # Histogram of total counts by strata 
 #  Note: tot.counts.strat are for all sighting conditions AND include periods when large vessels were associated with counts
 #====== +++ === === +++ === === +++ === ===
-ggplot(tot.counts.strat, aes(x = Stratum, y = TotalCount)) + geom_bar(stat = "identity") + ylab("Number of narwhals") + mytheme
+View(tot.counts.strat)
+filtered.no.vess.dat2014
+filtered.tot.counts.strat = ddply(tot.counts, "Stratum", summarise, 
+                                  TotalCount = sum(TotalCount, na.rm = TRUE))
+
+ggplot(tot.counts.strat, aes(x = Stratum, y = TotalCount)) + 
+  geom_bar(stat = "identity") + ylab("Total Number of narwhals") + mytheme
+
+fig.14.dat = table.group.size(filtered.dat2014.less.vessels)
+fig.14.dat = calc.intermediate.counts(fig.14.dat)
+fig.14.dat = calc.total.counts.strat(fig.14.dat)
+ggplot(fig.14.dat, aes(x = Stratum, y = TotalCount)) + 
+  geom_bar(stat = "identity") + ylab("Total Number of Narwhals") + mytheme
 
 #====== +++ === === +++ === === +++ === ===
 # Histograms of the distribution of count sizes (excluding zero counts) by strata 
@@ -64,7 +87,7 @@ ggplot(positive.counts.by.stratum, aes(x = TotalCount.without.na)) + geom_histog
 g = ggplot(data = filtered.dat2014.less.vessels, aes(x = GroupSize)) 
 g = g + geom_histogram(fill = "gray40", colour = "black", binwidth = 1, na.rm = TRUE, origin = -0.5)
 g = g + facet_grid(Stratum ~ SubStratum.num)
-g + xlim(c(-0.5, 6.5)) + xlab("Group Size") + ylab("Frequency") + mytheme + scale_y_continuous(breaks = c(50, 150))
+g + xlim(c(-0.5, 6.5)) + xlab("Narwhal Group Size") + ylab("Frequency of Narwhal Group Size") + mytheme + scale_y_continuous(breaks = c(50, 150))
 
 #====== +++ === === +++ === === +++ === ===
 # Histogram of group sizes in Strata
@@ -103,14 +126,15 @@ every.four.hrs = c("00:00", "04:00", "08:00", "12:00", "16:00", "20:00")
 #ggplot(fig.numbers.by.hour, aes(x = rounded.hour, y = Counts)) + geom_bar(stat = "identity") # total counts
 
 # total counts
-ggplot(fig.numbers.by.hour, aes(x = rounded.hour, y = Numbers)) + geom_bar(stat = "identity") + mytheme + 
-  ylab("Number of narwhals") + xlab("Time of Day") + scale_x_discrete(breaks=every.four.hrs)
+ggplot(fig.numbers.by.hour, aes(x = rounded.hour, y = Numbers)) + geom_bar(stat = "identity") + mytheme_larger + 
+  ylab("Total Number of Narwhals") + xlab("Time of Day") + scale_x_discrete(breaks=every.four.hrs) +
+  annotate("text", x = Inf, y = Inf, label = "(A)", hjust = 1.25, vjust = 2, family = "serif", size = 14)
 
 # Mean number of narwhals per count  
 ggplot(fig.numbers.by.hour, aes(x = rounded.hour, y = Mean.number)) +
-  geom_bar(stat = "identity") + mytheme + ylab("Mean number of narwhals per count") + xlab("Time of Day") +
-  scale_x_discrete(breaks=every.four.hrs)
-
+  geom_bar(stat = "identity") + mytheme_larger + ylab("Mean Number of Narwhals Per Count") + xlab("Time of Day") +
+  scale_x_discrete(breaks=every.four.hrs) +
+  annotate("text", x = Inf, y = Inf, label = "(B)", hjust = 1.25, vjust = 2, family = "serif", size = 14)
 
 #====== +++ === === +++ === === +++ === ===
 # Try boxplot of distribution of numbers by hour
@@ -202,13 +226,14 @@ heat.map.strata
 #====== +++ === === +++ === === +++ === ===
 # The palette with black:
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-man.palette = c("Red", "Orange", "Green", "Blue", "Black")
+man.palette = c("Red", "Blue", "Green", "Orange")
 # start working with 'included' data here
-names(dat2014.include)
+names(filtered.dat2014)
+sightings.dat2014 = subset(filtered.dat2014, GroupSize > 0)
 
 # This shows group size as a function of tidal flow (delta)
 #qplot(x = delta, y = GroupSize, data = dat2014.include, facets = Stratum ~ SubStratum.num) # first draft with qplot
-qplot(x = delta, y = GroupSize, data = dat2014, facets = Stratum ~ SubStratum.num) # first draft with qplot
+qplot(x = delta, y = GroupSize, data = sightings.dat2014, facets = Stratum ~ SubStratum.num) # first draft with qplot
 
 # head(dat2014.include)
 # g1 = ggplot(dat2014.include, aes(delta, GroupSize, colour = GroupSizeLevel)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
@@ -227,11 +252,20 @@ qplot(x = delta, y = GroupSize, data = dat2014, facets = Stratum ~ SubStratum.nu
 # gElev + geom_point() + facet_grid(Stratum ~ SubStratum.num) 
 
 library(scales)
-g3 = ggplot(subset(dat2014.include, subset = !is.na(Direction)), aes(x = delta, y = GroupSize, colour = Direction)) # Recreate with full ggplot (easier to customize plots with ggplot than qplot)
-g3 = g3 + geom_point() + facet_grid(Stratum ~ SubStratum.num) + scale_colour_manual(values=man.palette) #scale_fill_brewer(palette = "Set1") # scale_colour_brewer(palette = "Set3")
-g3 = g3 + xlab("Tidal Rate") + ylab("Group Size") + scale_y_continuous(limits = c(0, 15)) + geom_jitter() 
-g3 
+View(filtered.dat2014)
+# Recreate with full ggplot (easier to customize plots with ggplot than qplot)
+# g3 = ggplot(subset(dat2014.include, subset = !is.na(Direction)), aes(x = delta, y = GroupSize, colour = Direction)) 
+g3 = ggplot(subset(filtered.dat2014, subset = !is.na(Direction)), aes(x = delta, y = GroupSize, colour = Direction)) 
+g3 = g3 + facet_grid(Stratum ~ SubStratum.num) 
+g3 = g3 + scale_colour_manual("Narwhal\nTravel\nDirection", values=man.palette, labels=c("East", "North", "South", "West")) 
+g3 = g3 + xlab("Tide Flow") + ylab("Group Size") 
+g3 = g3 + scale_y_continuous(limits = c(0, 15)) 
+g3 = g3 + geom_jitter(size = 4, alpha = 0.75) 
+g3 = g3 + mytheme
+g3 + theme(legend.text = element_text(size = 20), legend.title = element_text(size = 20))
 
+?geom_jitter
+?geom_point
 ?scale_alpha_manual
 unique(dat2014.include$GroupSize)
 unique(dat2014.include$Direction)

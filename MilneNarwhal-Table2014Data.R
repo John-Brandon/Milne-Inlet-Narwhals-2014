@@ -74,7 +74,8 @@ calc.total.counts.subs = function(tot.counts){
 #====== +++ === === +++ === === +++ === ===
 calc.total.counts.strat = function(tot.counts){
   # uses 'plyr' package, could also use function aggregate  
-  tot.counts.strat = ddply(tot.counts, "Stratum", summarise, TotalCount = sum(TotalCount, na.rm = TRUE)) 
+  tot.counts.strat = ddply(tot.counts, "Stratum", summarise, 
+                           TotalCount = sum(TotalCount, na.rm = TRUE)) 
   return(tot.counts.strat)
 }
 
@@ -268,35 +269,38 @@ dat.to.plot$datetime.rounded.to.half.hr = force_tz(dat.to.plot$datetime.rounded.
 tz(dat.to.plot$datetime.rounded.to.half.hr)
 tz(dat.to.plot) # UTC ??
 
+View(dat.to.plot)
 # vess.to.plot = subset(large.vess.times, daynumber %in% c(215:225))
 #gg = ggplot(dat.to.plot, aes(x = datetime.rounded.to.half.hr, y = totalcount, colour = Sightability))
 gg = ggplot()
-# gg = gg + mytheme_bw + scale_x_datetime(breaks = date_breaks("1 day"), minor_breaks = date_breaks("1 hour"), 
-#                                         labels = date_format('%d-%b'), 
-#                                         limits = as.POSIXct(c("2014-08-08","2014-08-10"), tz = "EDT")) 
-gg = gg + geom_rect(data = large.vess.times, aes(xmin = start.time - hours(4), xmax = stop.time - hours(4), ymin = 0, ymax = Inf), alpha = 0.4) #)
-gg = gg + geom_point(data = dat.to.plot[!is.na(dat.to.plot$totalcount),], aes(x = datetime.rounded.to.half.hr, y = totalcount, group = daynumber, colour = Sightability)) # aes(group = daynumber)  
-gg = gg + geom_line(data = dat.to.plot[!is.na(dat.to.plot$totalcount),], aes(x = datetime.rounded.to.half.hr, y = totalcount, group = daynumber, colour = Sightability)) 
-gg = gg + xlab("Date") + ylab("Number of narwhals")
-gg = gg + scale_colour_manual(values = c("blue", "red"))
+gg = gg + geom_rect(data = large.vess.times, aes(xmin = start.time - hours(4), xmax = stop.time - hours(4), ymin = 0, ymax = Inf), alpha = 0.70) #)
+gg = gg + geom_point(data = dat.to.plot[!is.na(dat.to.plot$totalcount),], aes(x = datetime.rounded.to.half.hr, y = totalcount, group = daynumber, colour = Sightability), size = 4) # aes(group = daynumber)  
+gg = gg + geom_line(data = dat.to.plot[!is.na(dat.to.plot$totalcount),], aes(x = datetime.rounded.to.half.hr, y = totalcount, group = daynumber, colour = Sightability), size = 0.75) 
+gg = gg + xlab("Date") + ylab("Number of Narwhals per RAD Count")
+gg = gg + scale_colour_manual(values = c("blue", "red"), labels = c("Good to Excellent", "Poor"))
 gg = gg + mytheme_bw
+gg = gg + theme(legend.justification=c(0,1), legend.position=c(0.025,0.925))
 
 # Calls below make invididual plots for a given date range (defined by limits)
-gg + mytheme_bw + scale_x_datetime(breaks = date_breaks("1 day"), minor_breaks = date_breaks("6 hour"), 
+gg + scale_x_datetime(breaks = date_breaks("1 day"), # , minor_breaks = date_breaks("12 hour")
                       labels = date_format('%d-%b'), 
-                      limits = as.POSIXct(c("2014-08-03","2014-08-10"), tz = "EDT")) 
+                      limits = as.POSIXct(c("2014-08-03","2014-08-11"), tz = "EDT")) +
+      annotate("text", x=as.POSIXct("2014-08-03"), y=700, label="(A)", size = 8)
 
-gg + scale_x_datetime(breaks = date_breaks("1 day"), minor_breaks = date_breaks("6 hour"), 
+gg + scale_x_datetime(breaks = date_breaks("1 day"), 
                       labels = date_format('%d-%b'),
-                      limits = as.POSIXct(c("2014-08-11","2014-08-18"), tz = "EDT")) 
+                      limits = as.POSIXct(c("2014-08-11","2014-08-19"), tz = "EDT")) + 
+    annotate("text", x=as.POSIXct("2014-08-11"), y=700, label="(B)", size = 8)
 
-gg + scale_x_datetime(breaks = date_breaks("1 day"), minor_breaks = date_breaks("6 hour"), 
+gg + scale_x_datetime(breaks = date_breaks("1 day"), 
                       labels = date_format('%d-%b'),
-                      limits = as.POSIXct(c("2014-08-19","2014-08-26"), tz = "EDT")) 
+                      limits = as.POSIXct(c("2014-08-19","2014-08-27"), tz = "EDT")) +
+  annotate("text", x=as.POSIXct("2014-08-19"), y=700, label="(C)", size = 8)
 
-gg + scale_x_datetime(breaks = date_breaks("1 day"), minor_breaks = date_breaks("6 hour"), 
+gg + scale_x_datetime(breaks = date_breaks("1 day"), 
                       labels = date_format('%d-%b'),
-                      limits = as.POSIXct(c("2014-08-27","2014-09-04"), tz = "EDT")) 
+                      limits = as.POSIXct(c("2014-08-27","2014-09-04"), tz = "EDT")) +
+  annotate("text", x=as.POSIXct("2014-08-27"), y=700, label="(D)", size = 8)
 
 #====== +++ === === +++ === === +++ === ===
 # (8) 

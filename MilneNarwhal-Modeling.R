@@ -16,7 +16,7 @@
 library(vcd)
 library(AER)
 library(pscl)
-
+library("glmmADMB")
 # load data
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") 
 

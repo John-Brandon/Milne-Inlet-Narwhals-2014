@@ -64,6 +64,9 @@ View(fixdat2014)
 
 fixdat2014 = assign.groupcomp.known(fixdat2014)
 with(fixdat2014, unique(GroupFollow)); with(fixdat2014, length(unique(GroupFollow)))
+
+with(fixdat2014, unique(GroupFollow[GroupCompKnown]))
+
 # write.csv(fixdat2014, "foo1.csv"); system("open foo1.csv") # check
 
 # If one of the fixes has a known GroupComp, then GroupCompKnown = TRUE
@@ -78,66 +81,181 @@ with(fixdat2014, unique(GroupFollow)); with(fixdat2014, length(unique(GroupFollo
 # Assign "Super Group" Type to each follow of known GroupComp
 
 #====== +++ === === +++ === === +++ === ===
-# Work on table with known group types
-#  Take shortcut that Tracking data (at least for 2014) has compiled GroupComps
+# Work on table with known group types (SuperGroups)
+#  - Want primary and secondary behaviour budgets
+#  - Take shortcut that Tracking data (at least for 2014) has compiled GroupComps
+#  NOTE: The last steps for this task were done by hand in spreadsheet:
+#
 #====== +++ === === +++ === === +++ === ===
 trackdat2014 # names(trackdat2014)
-trackdat2014.keep = subset(trackdat2014, !is.na(TrackDuration)) # remove tracks without multiple fixes
+filtered.trackdat2014 = subset(trackdat2014, !is.na(TrackDuration)) # remove tracks without multiple fixes
+filtered.trackdat2014 = subset(filtered.trackdat2014, GroupFollow != "F15") # Drop this follow, bad data, from 2014
+with(filtered.trackdat2014, unique(GroupFollow)) # check
 
-foo0 = subset(trackdat2014.keep, select = c(GroupFollow, Anthro, TrackDuration, 
+sub.filtered.trackdat2014 = subset(filtered.trackdat2014, 
+                                   select = c(GroupFollow, Anthro, TrackDuration, 
                                       YesTusk_A, YesTusk_J, 
                                       YesTusk_U, NoTusk_U, 
                                       NoTusk_A, NoTusk_J, 
                                       NoTusk_C, NoTusk_U,
                                       UTusk_A, UTusk_J, UTusk_U))
-foo0 
+sub.filtered.trackdat2014 # note: for 2014 we've dropped two focal follows, each had only one fix
 
-foo1 = subset(trackdat2014.keep, select = c(YesTusk_A, YesTusk_J,  
-                                       YesTusk_U, NoTusk_U, 
-                                       NoTusk_A, NoTusk_J, 
-                                       NoTusk_C, 
-                                       UTusk_A, UTusk_J, 
-                                       UTusk_U))
-head(foo1)
+# how many uknown categories are also unobserved (NA)
+unknown.categories = with(sub.filtered.trackdat2014, 
+                     data.frame(YesTusk_U, NoTusk_U,  UTusk_A, UTusk_J, UTusk_U))
+head(unknown.categories) #str(unknown.categories)
 
-foo.known = subset(trackdat2014.keep, select = c(YesTusk_A, YesTusk_J,  
-                                                 NoTusk_A, NoTusk_J, 
-                                                 NoTusk_C))
-head(foo.known)
-foo.known$groupsize = rowSums(foo.known, na.rm = FALSE)
-foo.known = subset(foo.known, !is.na(groupsize)); nrow(foo.known)
+unknown.follows = rowSums(unknown.categories, na.rm = TRUE) # consider NA == 0
+unknown.follows # check
+
+index.unknown.follows = which(is.na(unknown.follows) | unknown.follows > 0)
+index.unknown.follows # check
+
+known.follows = filtered.trackdat2014[ -index.unknown.follows , ]
+
+known.follows = assign.supergroup.bits(known.follows) # Assign SuperGroups
+with(known.follows, SuperGroup)  # check
+
+sub.known.follows = subset(known.follows, select = c(GroupFollow, Anthro, SuperGroup))
+
+setdiff(names(sub.known.follows), names(fixdat2014))
+
+# Filter out follows from detailed fix data 
+follows.to.remove = setdiff(fixdat2014$GroupFollow, sub.known.follows$GroupFollow)
+index.follows.to.remove = which(fixdat2014$GroupFollow %in% follows.to.remove)
+filtered.fixdat2014 = fixdat2014[ - index.follows.to.remove, ]
+filtered.fixdat2014 = join(fixdat2014, sub.known.follows, by = "GroupFollow")
+filtered.fixdat2014 = filtered.fixdat2014[ - which(is.na(filtered.fixdat2014$SuperGroup)), ]
+  
+View(filtered.fixdat2014)
+with(filtered.fixdat2014, table(SuperGroup))
+
+# Sum total time each group followed and add column (note 'transform' argument)
+filtered.fixdat2014 = ddply(filtered.fixdat2014, .(Follow), transform,
+                        tot.time = sum(LegTime))
+View(filtered.fixdat2014)
+
+# Total follow times by SuperGroup
+ddply(filtered.fixdat2014, .(SuperGroup), summarise, 
+      tot.time = sum(unique(tot.time)))
+
+# Want the percentage of SuperGroups that spent XX % of time in primary behavior X
+ddply(filtered.fixdat2014, .(SuperGroup, PrimaryBeh), summarise, 
+      tot.time = sum(unique(tot.time)))
 
 
-foo.known
+ddply(filtered.fixdat2014, .(SuperGroup, PrimaryBeh), summarise, 
+      time = sum(unique(tot.time)))
 
-?subset
-?melt
+ddply(filtered.fixdat2014, .(SuperGroup, SecondaryBeh), summarise, 
+      time = sum(unique(tot.time)))
 
+table.tot.time = ddply(filtered.fixdat2014, .(Follow), summarise, # Checking
+      super.group = unique(SuperGroup),
+      tot.time = sum(LegTime), 
+      prime.beh = paste(unique(PrimaryBeh), collapse = " "),
+      secondary.beh = paste(unique(SecondaryBeh), collapse = " "))
+table.tot.time = arrange(table.tot.time, super.group, prime.beh)
 
-foo.test = foo.known[which(is.na(foo.known))]
+write.csv(table.tot.time, "table.tot.time.csv"); system("open table.tot.time.csv")
 
+follow.ii = table.tot.time$Follow[which(table.tot.time$prime.beh != "T")] 
+follow.ii
+complex.follows = filtered.fixdat2014[which(filtered.fixdat2014$Follow %in% follow.ii),]
+sub.complex.follows = subset(complex.follows,
+       select = c(Follow, PrimaryBeh, LegTime, Anthro, SuperGroup, tot.time))
 
-with(foo1, which(YesTusk_U < 1 & NoTusk_U < 1 & ))
+sub.complex.follows$percent.time = sub.complex.follows$LegTime / sub.complex.follows$tot.time
+sub.complex.follows$percent.time = round(sub.complex.follows$percent.time, 2)
+ddply(sub.complex.follows, .(Follow, PrimaryBeh), summarise, percent.time = sum(percent.time))
 
-foo = subset(foo1, YesTusk_U | YesTusk_U < 1)
+View(sub.complex.follows)
 
-ddply(foo0, .(GroupFollow))
+head(known.follows, n=10); nrow(known.follows)
 
-head(foo1)
-names(airquality) <- tolower(names(airquality))
-melt(airquality, id=c("month", "day"))
-names(ChickWeight) <- tolower(names(ChickWeight))
+# foo.known = subset(trackdat2014.keep, select = c(YesTusk_A, YesTusk_J,  
+#                                                  NoTusk_A, NoTusk_J, 
+#                                                  NoTusk_C))
+# head(foo.known)
+# foo.known$groupsize = rowSums(foo.known, na.rm = FALSE)
+# foo.known = subset(foo.known, !is.na(groupsize)); nrow(foo.known)
+# 
+# 
+# foo.test = foo.known[which(is.na(foo.known))]
+# 
+# 
+# with(foo1, which(YesTusk_U < 1 & NoTusk_U < 1 & ))
+# 
+# foo = subset(foo1, YesTusk_U | YesTusk_U < 1)
+# 
+# ddply(foo0, .(GroupFollow))
+# 
+# foo = assign.supergroup.bits(trackdat2014)
+# 
+# fix.groupcomp.known = subset(fixdat2014, GroupCompKnown)
+# fix.groupcomp.known = subset(fix.groupcomp.known, LegTime>0)
+# fix.groupcomp.known; nrow(fix.groupcomp.known)
+# with(fix.groupcomp.known, unique(GroupFollow)); with(fix.groupcomp.known, length(unique(GroupFollow)))
+# with(fix.groupcomp.known, unique(GroupFollow))
+# 
+# foo = assign.supergroup.bits(fix.groupcomp.known)
+
+#====== +++ === === +++ === === +++ === ===
+# Summary table given (summary) of track data
+#  Number of 
+#====== +++ === === +++ === === +++ === ===
+View(filtered.trackdat2014)
+nrow(filtered.trackdat2014); nrow(trackdat2014) # Check
+names(filtered.trackdat2014)
+
+filtered.trackdat2014$VessPrescence = rep(FALSE, nrow(filtered.trackdat2014))
+# filtered.trackdat2014$VessPrescence[which()] = TRUE
+vess.ii = which(filtered.trackdat2014$Anthro %in% c("MV", "SV"))
+vess.ii
+with(filtered.trackdat2014, table(Anthro))
+filtered.trackdat2014$VessPrescence[vess.ii] = TRUE
+View(filtered.trackdat2014)
+filtered.trackdat2014$Linearity
+
+foo = ddply(filtered.trackdat2014, .(VessPrescence), summarise, 
+      no.fixes = sum(NoOfFixes), 
+      min.track.duration = min(TrackDuration),
+      mean.track.duration = mean(TrackDuration),
+      max.track.duration = max(TrackDuration),
+      min.tot.distance = min(TotDistance), 
+      mean.tot.distance = mean(TotDistance),
+      max.tot.distance = max(TotDistance),
+      min.linearity = min(Linearity),
+      mean.linearity = mean(Linearity),
+      max.linearity = max(Linearity),
+      min.reorientation.rate = min(ReorientationRate),
+      mean.reorientation.rate = mean(ReorientationRate),
+      max.reorientation.rate = max(ReorientationRate),
+      min.min.legspeed = min(MinLegSpeed),
+      mean.min.legspeed = mean(MinLegSpeed),
+      max.min.legspeed = max(MinLegSpeed),
+      min.max.legspeed = min(MaxLegSpeed),
+      mean.max.legspeed = mean(MaxLegSpeed),
+      max.max.legspeed = max(MaxLegSpeed)
+      )
+
+# foo = subset(foo, select = c(Anthro, no.fixes, mean.track.duration, 
+#                       mean.tot.distance, mean.linearity,
+#                       mean.reorientation.rate, 
+#                       mean.min.legspeed,
+#                       mean.max.legspeed))
+
+foo 
+foo1 = melt(foo, id = "VessPrescence")
 foo1
-?subset
-foo = assign.supergroup.bits(trackdat2014)
+foo2 = cast(foo1,  variable ~ VessPrescence)
+foo2 = mutate(foo2, GroupsWithVess = MV + SV, GroupsNoVess = N)
+foo2
 
-fix.groupcomp.known = subset(fixdat2014, GroupCompKnown)
-fix.groupcomp.known = subset(fix.groupcomp.known, LegTime>0)
-fix.groupcomp.known; nrow(fix.groupcomp.known)
-with(fix.groupcomp.known, unique(GroupFollow)); with(fix.groupcomp.known, length(unique(GroupFollow)))
-with(fix.groupcomp.known, unique(GroupFollow))
-
-foo = assign.supergroup.bits(fix.groupcomp.known)
+foo3 = subset(foo2, select = c(variable, GroupsWithVess, GroupsNoVess))
+foo3$GroupsWithVes = with(foo3, round(GroupsWithVess, 2))
+foo3
 
 #====== +++ === === +++ === === +++ === ===
 # 1. 
