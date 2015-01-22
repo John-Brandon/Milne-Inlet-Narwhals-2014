@@ -8,7 +8,7 @@
 ###=== === +++ === === +++ === === +++ === ===
 # Purpose : Work on munging tide data for Milne Inlet narwhal shore based survey for LGL / Baffinland 
 #  Notes : 
-#  1) Your main directory will differ. See 'base.dir' variable below to edit that path to match your system
+#  1) Your main directory will differ. See calls to 'setwd()' below to edit that path to match your system
 #  2) Tide height is under "Elevation" column in *.csv data files
 #     Tide height is measure in meters
 #  3) Time for tides is in UTC. Need to convert to local time. Nunavut is -04:00
@@ -24,7 +24,6 @@ if (getOption("stringsAsFactors")) options(stringsAsFactors = FALSE) # set globa
 # Function to convert julian dates in tide data to calendar date and time (in local Nunuvat time)
 #====== +++ === === +++ === === +++ === ===
 StampTime.Tides = function(tide.dat){
-# Comments here to document what this function is doing : TODO (jbrandon)
   unique.yrs = unique(tide.dat$Year) # get unique years in this tide data, function expects only one unique year
   yr = ifelse(length(unique.yrs) == 1, yes = unique.yrs, no = print("ERROR: There is not a single unique year in this tide data file"))
   origin.day = paste(yr, "01", "01", sep = "-") # start counting julian dates from Jan 1st
@@ -111,5 +110,5 @@ write.csv(x = dat.tides.2014, file = "foo.csv", row.names = FALSE); system("open
 #====== +++ === === +++ === === +++ === ===
 save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/TideData.MilneNarwhal.2014.RData")
 
-# SCRATCH CODE BELOW
+
 

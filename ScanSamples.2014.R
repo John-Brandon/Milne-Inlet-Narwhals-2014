@@ -10,7 +10,7 @@
 #           Milne Inlet LGL / Baffinland shore based (Bruce Head) narwhal counts
 #  Notes : 
 #  1) Your main directory will differ, so you'll need to change the 'base.dir' value
-#  2) Save 
+#  2) Some of the tabling for the 2014 report was completed in a spreadsheet. 
 #====== +++ === === +++ === === +++ === ===
 load.packages()
 

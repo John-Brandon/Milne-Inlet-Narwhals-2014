@@ -8,10 +8,11 @@
 ###=== === +++ === === +++ === === +++ === ===
 # Purpose : Code to table Milne Inlet narwhal data for LGL / Baffinland 
 #  Notes : These routines work on data that has already been extracted and munged, so the first step is to load that pre-massaged data 
-#  1) Your main directory will differ. See 'base.dir' variable below to edit that path to match your system
-#  2) 
-#  3) These data are also known as "Relative Abundance and Distribution" (RAD) data 
-#  4) Loads existing workspace, that contains 2014 data (dat2014)
+#  1) Your main directory will differ. You will have to edit the lines of code with directories to match your system
+#  2) Loads existing workspace, that contains 2014 data (dat2014)
+#  3) These data are also known as "Relative Abundance and Distribution" (RAD) data  
+#  4) Includes code to make Figure 21: Time series of total counts
+#   TODO : Move this to plotting script
 #====== +++ === === +++ === === +++ === ===
 
 rm(list=ls()) # clear leftovers from previous workspace
@@ -20,10 +21,6 @@ load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal
 
 # Load packages, this list is defined in Munging2014Data script
 load.packages()
-
-# Alternatively, e.g. if data has been updated, can source the script to munge 2014 data
-# setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Code/Milne-Inlet-Narwhals-2014")
-# source("MilneNarwhal-Munging2014Data.R")
 
 setwd("~/Documents/2014 Work/Milne Inlet Narwhals/Data/2014") # Set working directory for data, really for outputting tables (data has already been read)
 
@@ -102,6 +99,7 @@ calc.counts.by.sub.stratum = function(dat){
   return(counts.by.sub.stratum)
 }
 
+# Check
 # write.csv(x = counts.by.sub.stratum, file = "counts.by.sub.stratum.csv", row.names = FALSE); system("open counts.by.sub.stratum.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
@@ -124,6 +122,7 @@ calc.counts.by.strat = function(counts.by.sub.stratum){
   return(counts.by.stratum)
 }
 
+# Check
 # write.csv(x = counts.by.stratum, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
@@ -154,60 +153,17 @@ write.csv(x = counts.by.stratum.2014, file = "counts.by.stratum.2014.csv", row.n
 
 
 #====== +++ === === +++ === === +++ === ===
-# (7) 
-# Filter count-by-stratum to include only "G" or "E" sightability
-#  Note: There may be differences in sightability between substratum in the same survey count 
-#   e.g. A1 = "E", A2 = "G" and A3 = "P". In this example, the Stratum sightability has been compiled as "E,G,P". 
-#   Unless all of the sub-stratum are "G" or "E" in a stratum count, that stratum is filtered.
-#   So, in this example, stratum A would be filtered out because one of the sub-stratum was not "G" or "E".
-#====== +++ === === +++ === === +++ === ===
-# counts.by.stratum.keepers = subset(counts.by.stratum, Sightability %in% c("G", "E", "G,E", "E,G"))
-# head(counts.by.stratum.keepers)
-# str(counts.by.stratum.keepers)
-# length(with(counts.by.stratum.keepers, unique(Count.id))) # check
-# 
-# calc.ssq = function(x, y) sum((x-y)^2, na.rm = TRUE)
-# with(counts.by.stratum.keepers, calc.ssq(TotalCount.with.na, TotalCount.without.na)) # check
-# 
-# # merge tide data 
-# counts.by.stratum.keepers = merge(counts.by.stratum.keepers, dat.tides.2014.subset, by.x = "datetime.rounded.to.half.hr", by.y = "datetime")
-# View(counts.by.stratum.keepers)
-# write.csv(x = counts.by.stratum.keepers, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
-
-#====== +++ === === +++ === === +++ === ===
-# (7.1) 
-# Cast the counts by stratum into a wide format data.frame
-#====== +++ === === +++ === === +++ === ===
-# counts.by.stratum.keepers$value = counts.by.stratum.keepers$TotalCount.without.na
-# dat.mat.2014 = cast(counts.by.stratum.keepers, datetime.rounded.to.half.hr + CountType ~ Stratum) # reshape the data.frame into Table D-1 from 2013 report (cast in Wickham's lexicon)
-# # dat.mat.2014 = mutate(dat.mat.2014, totalcount = A + B + C + D + E + F + G + H + I)
-# strat.tmp = subset(dat.mat.2014, select = c(A,B,C,D,E,F,G,H,I))
-# Sightability = NULL; totalcount = NULL
-# for(ii in 1:nrow(strat.tmp)){
-#  Sightability[ii] = ifelse(any(is.na(strat.tmp[ii,])), "Poor", "Good")
-#  totalcount[ii] = sum(strat.tmp[ii,], na.rm = TRUE)
-# }
-# dat.mat.2014 = cbind(dat.mat.2014, totalcount, Sightability) # bind new columns
-# head(dat.mat.2014)
-# View(dat.mat.2014)
-# write.csv(x = dat.mat.2014, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
-
-#====== +++ === === +++ === === +++ === ===
 # (8) 
 # Join counts.by.stratum (now also includes total counts across stratum) 
 #  with vector including time-stamps for full season
 # This is a pre-cursor to plotting the time-series of effort / counts for the whole season 
 #====== +++ === === +++ === === +++ === ===
-# head(dat.mat.2014$datetime.rounded.to.half.hr)
-str(half.hourly.timestamps)
+str(half.hourly.timestamps) # check
 time.stamps = force_tz(half.hourly.timestamps, tzone = tz(dat2014$datetime))
 time.stamps = as.data.frame(half.hourly.timestamps)
-str(time.stamps)
+str(time.stamps) # check
 
-# tmp = merge(dat.mat.2014, time.stamps, by.x = "datetime.rounded.to.half.hr", by.y = "half.hourly.timestamps") # inner join
-# tmp = merge(time.stamps, dat.mat.2014, by.x = "half.hourly.timestamps", by.y = "datetime.rounded.to.half.hr")
-head(counts.by.stratum.2014)
-head(dat.mat.2014)
+head(counts.by.stratum.2014) # check
 
 counts.for.plot = ddply(counts.by.stratum.2014, .(Count.id), summarise, 
                         datetime.rounded.to.half.hr = unique(datetime.rounded.to.half.hr),
@@ -218,10 +174,10 @@ counts.for.plot = ddply(counts.by.stratum.2014, .(Count.id), summarise,
 )
 head(counts.for.plot, n = 80)
 
-#all.season.dat = merge(dat.mat.2014, time.stamps, by.x = "datetime.rounded.to.half.hr", by.y = "half.hourly.timestamps", all = TRUE) # outer join
 all.season.dat = merge(counts.for.plot, time.stamps, by.x = "datetime.rounded.to.half.hr", by.y = "half.hourly.timestamps", all = TRUE) # outer join
 head(all.season.dat)
 
+# Check
 # write.csv(x = all.season.dat, file = "foo2.csv", row.names = FALSE); system("open foo2.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
@@ -302,16 +258,6 @@ gg + scale_x_datetime(breaks = date_breaks("1 day"),
                       limits = as.POSIXct(c("2014-08-27","2014-09-04"), tz = "EDT")) +
   annotate("text", x=as.POSIXct("2014-08-27"), y=700, label="(D)", size = 8)
 
-#====== +++ === === +++ === === +++ === ===
-# (8) 
-# ** THIS IS THE FUNDAMENTAL DATA MATRIX TO BE FIT DURING MODELING ** 
-# Join covariates as columns to the data matrix
-#====== +++ === === +++ === === +++ === ===
-names(dat.mat.2014)[1] = "datetime"
-dat.mat.2014.covariates = join(dat.mat.2014, dat.tides.2014.subset, by = "datetime") # join() is function in 'plyr' package for merging data.frames
-str(dat.mat.2014.covariates)
-
-# write.csv(x = dat.mat.2014.covariates, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
 #====== +++ === === +++ === === +++ === ===
 # Look at breakdown of sightability during vessel counts
@@ -436,71 +382,4 @@ table.substram.numbers = ddply(dat2014, "Count.id", summarise, # TODO (jbrandon)
 
 # write.csv(x = table.all.numbers, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
 
-#====== +++ === === +++ === === +++ === ===
-# TODO: subset data to exclude strata counts that included at least one sub-strata with poor sightability
-#====== +++ === === +++ === === +++ === ===
-
-# dat2014.keepers = subset(dat2014, IncludeCount == TRUE) # IncludeCount is column with TRUE / FALSE in each row
-# 
-# write.csv(x = dat2014.keepers, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-# unique(dat2014.keepers$IncludeCount)  # check -- should be TRUE
-# dim(dat2014.keepers); dim(dat2014) # check
-
-#====== +++ === === +++ === === +++ === ===
-# Table "Keepers" for the count by stratum data
-#====== +++ === === +++ === === +++ === ===
-# keepers.table = ddply(dat2014.keepers, "Date", summarise, # TODO(jbrandon): come up wit more elegant way to sum over groups (i.e. when number of stratum is a variable)
-#                    A = sum(GroupSize[which(Stratum=="A")], na.rm = TRUE), # this is pretty cluggy
-#                    B = sum(GroupSize[which(Stratum=="B")], na.rm = TRUE),
-#                    C = sum(GroupSize[which(Stratum=="C")], na.rm = TRUE),
-#                    D = sum(GroupSize[which(Stratum=="D")], na.rm = TRUE),
-#                    E = sum(GroupSize[which(Stratum=="E")], na.rm = TRUE),
-#                    F = sum(GroupSize[which(Stratum=="F")], na.rm = TRUE),
-#                    G = sum(GroupSize[which(Stratum=="G")], na.rm = TRUE),
-#                    H = sum(GroupSize[which(Stratum=="H")], na.rm = TRUE),
-#                    I = sum(GroupSize[which(Stratum=="I")], na.rm = TRUE)) # , Counts.With.Vessel = would be nice to add this but do by hand for now
-# 
-# write.csv(x = keepers.table, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-# 
-# keepers.counts.to.include = ddply(dat2014.keepers, "Count.id", summarise, Include.count = CountInclude(Sightability)) # CountInclude function is coded above in this script
-# 
-# keepers.dates = keepers.table[, 1] # extract column with dates -- will add this back to data frame after summing across rows
-# keepers.table.counts = keepers.table[, -1] # remove column with dates for now, will recombine below
-# all.strata = rowSums(keepers.table.counts) # total numbers, across strata, for each day 
-# keepers.table = cbind(keepers.dates, keepers.table.counts, all.strata) # recombine
-# 
-# write.csv(x = keepers.table, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-# 
-# # add column to keepers.table with counts by day 
-# # For each day, get unique number of start times, which should be equal to the number of counts on that day
-# keepers.daily.counts = ddply(dat2014.keepers, "Date", summarise, number.of.counts = length(unique(datetime)))
-# keepers.table = cbind(keepers.table, keepers.daily.counts[,2])
-# names(keepers.table)[length(names(keepers.table))] = "number.of.counts" # rename last column to "number.of.counts"
-# 
-# keepers.table$mean.no.per.count = keepers.table$all.strata / keepers.table$number.of.counts # mean numbers per counts each day
-# keepers.table$mean.no.per.count = round(keepers.table$mean.no.per.count, digits = 1)
-# 
-# write.csv(x = keepers.table, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-#====== +++ === === +++ === === +++ === ===
-# Table number of narwhals per stratum during: 
-#  (1) good or excellent sightability, and
-#  (2) during periods of "PRE" "C" or "POST" vessel presence
-#====== +++ === === +++ === === +++ === ===
-# names(dat2014.keepers) # these are the counts where each (and every) stratum was observed during good to excellent sightability 
-# 
-# dat2014.keepers.vessel = subset(dat2014.keepers, Vessel.related.count == TRUE)
-# write.csv(x = dat2014.keepers.vessel, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-
-
 save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData")
-# # SCRATCH CODE BELOW
-# ?rle
-# rm(z)
-# z <- c(TRUE, TRUE, FALSE, FALSE, TRUE, FALSE, TRUE, TRUE, TRUE)
-# rle(z)
-# foorle <- rle(as.character(z))
-# rep(seq_len(length(foorle$values)), times=foorle$lengths)
-# rm(foorle)
-# rle(dat2014$Date) # run length encoding
-# ?seq_len

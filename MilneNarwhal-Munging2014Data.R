@@ -39,9 +39,8 @@ setwd(base.dir) # Set working directory for data
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData") #Debugging
 
 # Read data 
-# TODO 
-# Eventually can move this to another more general script, 
-#  that loads and processes data (calling the functions in this script)
+# TODO: Consider moving data input to another more general script. 
+#  That seperate script could load and process data (calling the functions in this script)
 dfile = "2014.milne.inlet.narwhal.csv" # 2014 RAD data file, saved as comma delimited
 dat2014 = read.csv(file = dfile, header = TRUE, as.is = TRUE, na.strings = c("NA", "x", "X")) # Read data file 
 
@@ -51,7 +50,7 @@ dat2014 = read.csv(file = dfile, header = TRUE, as.is = TRUE, na.strings = c("NA
 as.numeric.factor <- function(x) {as.numeric(levels(x))[x]} 
 
 #====== +++ === === +++ === === +++ === ===
-# Clean up some known typos
+# Clean up some known typos: DEFUNCT CODE (typos should be fixed in data)
 #====== +++ === === +++ === === +++ === ===
 clean.typos = function(dat){
   substratum.typos.ii = which(dat$SubStratum == "13") 
@@ -65,7 +64,7 @@ clean.typos = function(dat){
 }
 
 #====== +++ === === +++ === === +++ === ===
-# Remove 'extraneous' columns [not needed for quantitative analyses]
+# Remove 'extraneous' columns [those not needed for quantitative analyses]
 #====== +++ === === +++ === === +++ === ===
 remove.extraneous.columns = function(dat){
   columns.to.remove = c("Obs", "Obs_BI", "Obs_DR", "Comments", "Entered", "Checked")
@@ -117,8 +116,6 @@ create.long.seq.datetime = function(dat){
   half.hourly.timestamps = seq(from=start.season, by=increment.timestamp*60, to=end.season)  
   return(half.hourly.timestamps)
 }
-
-half.hourly.timestamps.2014 = create.long.seq.datetime(dat2014) # Consider moving this function call to Plotting Script
 
 #====== +++ === === +++ === === +++ === ===
 # Add a column to data.frame, assigning TRUE or FALSE to vessel count
@@ -326,6 +323,7 @@ dat2014 = factor.group.size(dat2014)
 dat2014 = merge.2014.dat.tides(dat2014, dat.tides.2014)
 dat2014 = assign.strat.sight.2014(dat2014)
 dat2014 = factor.count.quality(dat2014)
+half.hourly.timestamps.2014 = create.long.seq.datetime(dat2014) # Consider moving this function call to Plotting Script
 filtered.dat2014 = filter.sight(dat2014)  # filter dat2014 for modeling (3389 rows)
 filtered.dat2014.less.vessels = filter.out.large.vessels(filtered.dat2014)
 View(dat2014)
@@ -371,6 +369,7 @@ large.vess.times = extract.vessel.transit.times(dat2014)
 
 #====== +++ === === +++ === === +++ === ===
 # Create another data.frame, with a subset of the counts which meet sightability criteria
+# Not used. Filtering is now done by filter.sight() function in CombineAnnualData script
 #====== +++ === === +++ === === +++ === ===
 # dat2014.include = subset(dat2014, include.group == TRUE)
 # dat2014.include = subset(dat2014, include.stratum.count == TRUE)
@@ -381,34 +380,3 @@ large.vess.times = extract.vessel.transit.times(dat2014)
 save.image("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData")
 
 load("~/Documents/2014 Work/Milne Inlet Narwhals/2014 Analysis/Code/MilneNarwhal.2014.RData")
-#====== +++ === === +++ === === +++ === ===
-# %%% SCRATCH CODE BELOW %%%
-#====== +++ === === +++ === === +++ === ===
-
-#====== +++ === === +++ === === +++ === ===
-# Search comments for keywords related to hunting
-#====== +++ === === +++ === === +++ === ===
-# hunt.words = c("shot", "gunshot", "gunshots", "shots", "shooting", "hunt", "hunting")
-comments.ii = with(dat2014, which(! Comments %in% c(NA, ""))) # subset of comments that aren't blank
-comments = dat2014[comments.ii, ]
-comments = with(comments, data.frame(Count.id, Date, Time, Comments))
-write.csv(x = comments, file = "foo3.csv", row.names = FALSE); system("open foo3.csv")
-str(comments)
-View(comments)
-# comments[,1] = as.integer(comments[,1]) # I don't like "hard-coding" of index (= 1) here TODO: jbrandon
-# names(comments) = c("Count.id", "Comments")
-# write.csv(x = comments, file = "foo.csv", row.names = FALSE); system("open foo.csv") # check
-# head(comments)
-# 
-# comments.split = strsplit(comments$Comments, " ") # returns a list, with a character vector containing individual words for each comment
-# str(comments.split) 
-# comments.split[[1]][1] # This is the first 'word' in the first comment
-# comments.split = lapply(comments.split, tolower) # coerce comments to lower case to ease matching, i.e. %in%
-# matches = lapply(comments.split, function(x) x %in% hunt.words) # list like comments.split, but each word gets true or false if matches hunt.words
-# matches = lapply(matches, function(x) any(x))
-# match.ii = which(matches == TRUE); length(match.ii) # return index of matches in comments.split
-# 
-# xx = c("a", "b", "c")
-# xx %in% hunt.words
-# ? '%in%'
-# ?grep
