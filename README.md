@@ -15,3 +15,5 @@ The scripts should be run in this order:
 
 5) Modeling Data (TODO : jbrandon)
 
+Notes: The EnviroDataMunging script is not currently used, but could form the basis for munging environmental data (e.g., wind data) in the future. 
+
