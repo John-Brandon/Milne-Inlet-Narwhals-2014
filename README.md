@@ -13,7 +13,8 @@ The scripts should be run in this order:
 
 4) Plot 2014 Data
 
-5) Modeling Data (TODO : jbrandon)
+5) Combine Annual Data
+ * The code in this script contains the call to fit the mixed-effects negative binomial model to the count data (~line 245). 
 
 Notes: The EnviroDataMunging script is not currently used, but could form the basis for munging environmental data (e.g., wind data) in the future. 
 
